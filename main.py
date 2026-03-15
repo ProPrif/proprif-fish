@@ -26,13 +26,23 @@ def select_fish():
     return None
 
 
+def show_fish_info_window(fish):
+    print("\n" + "=" * 35)
+    print("      ŽUVIES INFORMACIJOS LANGAS")
+    print("=" * 35)
+    print(f'Pavadinimas: {fish["name"]}')
+    print("=" * 35)
+
+    input("\nPaspauskite Enter, kad uždaryti informacijos langą...")
+
+
 def main():
     show_fish_list()
 
     selected_fish = select_fish()
 
     if selected_fish:
-        print(f"\nPasirinkta žuvis: {selected_fish['name']}")
+        show_fish_info_window(selected_fish)
 
 
 if __name__ == "__main__":
