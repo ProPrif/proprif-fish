@@ -26,20 +26,22 @@ def select_fish():
     return None
 
 def show_fish_info_window(fish):
-    print("\n" + "=" * 35)
-    print("      ŽUVIES INFORMACIJOS LANGAS")
-    print("=" * 35)
+    print("\n" + "=" * 40)
+    print("        ŽUVIES INFORMACIJOS LANGAS")
+    print("=" * 40)
 
-    print(f'Pavadinimas: {fish["name"]}')
-    print(f'Rekomenduojama temperatūra: {fish["temperature"]}')
-    print(f'Rekomenduojamas pH intervalas: {fish["ph"]}')
-    print(f'Maksimalus žuvies dydis: {fish["size"]}')
-    print(f'Elgsena: {fish["behavior"]}')
+    print(f"Pavadinimas: {fish['name']}")
+    print(f"Rekomenduojama temperatūra: {fish['temperature']}")
+    print(f"Rekomenduojamas pH intervalas: {fish['ph']}")
+    print(f"Maksimalus žuvies dydis: {fish['size']}")
+    print(f"Elgsena: {fish['behavior']}")
 
-    print("=" * 35)
+    print("\nAprašymas:")
+    print(f"{fish['description']}")
+
+    print("=" * 40)
 
     input("\nPaspauskite Enter, kad uždaryti informacijos langą...")
-
 
 
 def main():
