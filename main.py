@@ -44,6 +44,42 @@ def save_to_history(selected_fish, result):
     with open("history.txt", "a", encoding="utf-8") as file:
         file.write(line)
 
+def delete_history_entry():
+    try:
+        with open("history.txt", "r", encoding="utf-8") as file:
+            lines = file.readlines()
+
+        if not lines:
+            print("Istorija tuščia.")
+            return
+
+        print("\nISTORIJOS ĮRAŠAI")
+        print("--------------------")
+
+        for i, line in enumerate(lines, start=1):
+            print(f"{i}. {line.strip()}")
+
+        choice = input("\nĮveskite įrašo numerį kurį norite ištrinti: ")
+
+        if not choice.isdigit():
+            print("Neteisingas pasirinkimas.")
+            return
+
+        index = int(choice) - 1
+
+        if index < 0 or index >= len(lines):
+            print("Tokio įrašo nėra.")
+            return
+
+        del lines[index]
+
+        with open("history.txt", "w", encoding="utf-8") as file:
+            file.writelines(lines)
+
+        print("Įrašas ištrintas.")
+
+    except FileNotFoundError:
+        print("Istorijos failas nerastas.")
 
 def show_history():
     print("\nSUDERINAMUMO TIKRINIMŲ ISTORIJA")
@@ -69,6 +105,7 @@ def main():
         print("\nMENIU")
         print("1 - Atlikti suderinamumo tikrinimą")
         print("2 - Peržiūrėti istoriją")
+        print("3 - Ištrinti istorijos įrašą")
         print("0 - Išeiti")
 
         choice = input("Pasirinkite veiksmą: ")
@@ -85,10 +122,13 @@ def main():
 
         elif choice == "2":
             show_history()
+        elif choice == "3":
+            delete_history_entry()
 
         elif choice == "0":
             print("Programa baigta.")
             break
+
 
         else:
             print("Neteisingas pasirinkimas.")
