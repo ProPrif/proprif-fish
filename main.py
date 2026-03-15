@@ -25,15 +25,21 @@ def select_fish():
     print("Tokia žuvis nerasta.")
     return None
 
-
 def show_fish_info_window(fish):
     print("\n" + "=" * 35)
     print("      ŽUVIES INFORMACIJOS LANGAS")
     print("=" * 35)
+
     print(f'Pavadinimas: {fish["name"]}')
+    print(f'Rekomenduojama temperatūra: {fish["temperature"]}')
+    print(f'Rekomenduojamas pH intervalas: {fish["ph"]}')
+    print(f'Maksimalus žuvies dydis: {fish["size"]}')
+    print(f'Elgsena: {fish["behavior"]}')
+
     print("=" * 35)
 
     input("\nPaspauskite Enter, kad uždaryti informacijos langą...")
+
 
 
 def main():
