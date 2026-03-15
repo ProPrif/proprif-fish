@@ -39,33 +39,59 @@ def save_to_history(selected_fish, result):
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     fish_names = [fish["name"] for fish in selected_fish]
 
-    new_line = f"{time} | Žuvys: {', '.join(fish_names)} | Rezultatas: {result}\n"
+    line = f"{time} | Žuvys: {', '.join(fish_names)} | Rezultatas: {result}\n"
+
+    with open("history.txt", "a", encoding="utf-8") as file:
+        file.write(line)
+
+
+def show_history():
+    print("\nSUDERINAMUMO TIKRINIMŲ ISTORIJA")
+    print("--------------------------------")
 
     try:
         with open("history.txt", "r", encoding="utf-8") as file:
             lines = file.readlines()
+
+            if not lines:
+                print("Istorija tuščia.")
+                return
+
+            for line in lines[-10:]:
+                print(line.strip())
+
     except FileNotFoundError:
-        lines = []
-
-    lines.append(new_line)
-
-    if len(lines) > 10:
-        lines = lines[-10:]
-
-    with open("history.txt", "w", encoding="utf-8") as file:
-        file.writelines(lines)
+        print("Istorijos failas dar nesukurtas.")
 
 
 def main():
-    show_fish_list()
+    while True:
+        print("\nMENIU")
+        print("1 - Atlikti suderinamumo tikrinimą")
+        print("2 - Peržiūrėti istoriją")
+        print("0 - Išeiti")
 
-    selected_fish = get_selected_fish()
-    result = check_compatibility(selected_fish)
+        choice = input("Pasirinkite veiksmą: ")
 
-    if result:
-        print("\nRezultatas:", result)
-        save_to_history(selected_fish, result)
-        print("Rezultatas išsaugotas į history.txt")
+        if choice == "1":
+            show_fish_list()
+            selected_fish = get_selected_fish()
+            result = check_compatibility(selected_fish)
+
+            if result:
+                print("\nRezultatas:", result)
+                save_to_history(selected_fish, result)
+                print("Rezultatas išsaugotas į history.txt")
+
+        elif choice == "2":
+            show_history()
+
+        elif choice == "0":
+            print("Programa baigta.")
+            break
+
+        else:
+            print("Neteisingas pasirinkimas.")
 
 
 if __name__ == "__main__":
