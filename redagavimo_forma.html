@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<title>Akvariumo sistema</title>
+
+<style>
+body{
+font-family:Arial;
+background:#f4f7f9;
+display:flex;
+justify-content:center;
+padding:40px;
+}
+
+.card{
+background:white;
+padding:25px;
+width:420px;
+border-radius:12px;
+box-shadow:0 5px 20px rgba(0,0,0,0.1);
+}
+
+.form-group{
+margin-bottom:15px;
+}
+
+label{
+display:block;
+margin-bottom:6px;
+font-weight:bold;
+}
+
+.input-wrapper{
+display:flex;
+gap:8px;
+}
+
+input{
+flex:1;
+padding:8px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+.unit{
+padding-top:8px;
+}
+
+button{
+width:100%;
+padding:10px;
+background:#2563eb;
+border:none;
+color:white;
+border-radius:8px;
+cursor:pointer;
+}
+
+button:hover{
+background:#1e4ed8;
+}
+
+.current{
+background:#eef6ff;
+padding:12px;
+border-radius:10px;
+margin-bottom:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>Akvariumo parametrai</h2>
+
+<div class="current">
+<p>Pavadinimas: <span id="currentName"></span></p>
+<p>Temperatūra: <span id="currentTemp"></span> °C</p>
+<p>pH: <span id="currentPh"></span></p>
+<p>Tūris: <span id="currentVolume"></span> l</p>
+</div>
+
+<form id="aquariumForm">
+
+<div class="form-group">
+<label>Pavadinimas</label>
+<input type="text" id="name">
+</div>
+
+<div class="form-group">
+<label>Temperatūra</label>
+<div class="input-wrapper">
+<input type="number" id="temperature">
+<span class="unit">°C</span>
+</div>
+</div>
+
+<div class="form-group">
+<label>pH lygis</label>
+<div class="input-wrapper">
+<input type="number" step="0.1" id="ph">
+<span class="unit">pH</span>
+</div>
+</div>
+
+<div class="form-group">
+<label>Tūris</label>
+<div class="input-wrapper">
+<input type="number" id="volume">
+<span class="unit">l</span>
+</div>
+</div>
+
+<button type="submit">Išsaugoti</button>
+
+</form>
+
+</div>
+
+<script>
+
+class Aquarium{
+constructor(name, temperature, ph, volume){
+this.name = name;
+this.temperature = temperature;
+this.ph = ph;
+this.volume = volume;
+}
+}
+
+let aquarium;
+
+function loadAquarium(){
+
+const saved = localStorage.getItem("aquarium");
+
+if(saved){
+aquarium = JSON.parse(saved);
+}else{
+aquarium = new Aquarium("Mano akvariumas",25,7.2,120);
+}
+
+updateDisplay();
+}
+
+function updateDisplay(){
+
+document.getElementById("currentName").textContent = aquarium.name;
+document.getElementById("currentTemp").textContent = aquarium.temperature;
+document.getElementById("currentPh").textContent = aquarium.ph;
+document.getElementById("currentVolume").textContent = aquarium.volume;
+
+document.getElementById("name").value = aquarium.name;
+document.getElementById("temperature").value = aquarium.temperature;
+document.getElementById("ph").value = aquarium.ph;
+document.getElementById("volume").value = aquarium.volume;
+
+}
+
+document.getElementById("aquariumForm").addEventListener("submit",function(e){
+
+e.preventDefault();
+
+aquarium.name = document.getElementById("name").value;
+aquarium.temperature = document.getElementById("temperature").value;
+aquarium.ph = document.getElementById("ph").value;
+aquarium.volume = document.getElementById("volume").value;
+
+localStorage.setItem("aquarium", JSON.stringify(aquarium));
+
+updateDisplay();
+
+});
+
+loadAquarium();
+
+</script>
+
+</body>
+</html>
