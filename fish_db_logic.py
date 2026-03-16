@@ -4,7 +4,7 @@ conn = sqlite3.connect("fish.db")
 cursor = conn.cursor()
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS zuvys (
+CREATE TABLE IF NOT EXISTS fish (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     temperature REAL NOT NULL,
@@ -16,5 +16,30 @@ CREATE TABLE IF NOT EXISTS zuvys (
 conn.commit()
 
 print("SQLite duomenų bazė ir lentelė 'fish' sėkmingai sukurta.")
+
+def add_fish(name, temperature, aggression, size):
+    cursor.execute("""
+    INSERT INTO fish (name, temperature, aggression, size)
+    VALUES (?, ?, ?, ?)
+    """, (name, temperature, aggression, size))
+    
+    conn.commit()
+    print(f"Žuvis '{name}' sėkmingai įrašyta į duomenų bazę.")
+
+    cursor.execute("""
+    SELECT * FROM fish
+    WHERE name = ? AND temperature = ? AND aggression = ? AND size = ?
+    """, (name, temperature, aggression, size))
+    
+    result = cursor.fetchone()
+
+    if result:
+        print("Patikrinimas sėkmingas. Įrašas rastas duomenų bazėje:")
+        print(result)
+    else:
+        print("Klaida: įrašo nepavyko rasti.")
+
+
+add_fish("test_fish", 24.5, "test", 4.0)
 
 conn.close()
