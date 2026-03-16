@@ -17,6 +17,7 @@ conn.commit()
 
 print("SQLite duomenų bazė ir lentelė 'fish' sėkmingai sukurta.")
 
+
 def add_fish(name, temperature, aggression, size):
     cursor.execute("""
     INSERT INTO fish (name, temperature, aggression, size)
@@ -29,6 +30,8 @@ def add_fish(name, temperature, aggression, size):
     cursor.execute("""
     SELECT * FROM fish
     WHERE name = ? AND temperature = ? AND aggression = ? AND size = ?
+    ORDER BY id DESC
+    LIMIT 1
     """, (name, temperature, aggression, size))
     
     result = cursor.fetchone()
@@ -39,7 +42,14 @@ def add_fish(name, temperature, aggression, size):
     else:
         print("Klaida: įrašo nepavyko rasti.")
 
+    return result
 
-add_fish("test_fish", 24.5, "test", 4.0)
 
-conn.close()
+def clear_fish_table():
+    cursor.execute("DELETE FROM fish")
+    conn.commit()
+
+
+if __name__ == "__main__":
+    add_fish("test_fish", 24.5, "test", 4.0)
+    conn.close()
