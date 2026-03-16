@@ -2,70 +2,80 @@
 <html lang="lt">
 <head>
 <meta charset="UTF-8">
-<title>Akvariumo sistema</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Akvariumo parametrai</title>
 
 <style>
 body{
-font-family:Arial;
-background:#f4f7f9;
-display:flex;
-justify-content:center;
-padding:40px;
+    font-family: Arial;
+    background:#f4f7f9;
+    display:flex;
+    justify-content:center;
+    padding:40px;
 }
 
 .card{
-background:white;
-padding:25px;
-width:420px;
-border-radius:12px;
-box-shadow:0 5px 20px rgba(0,0,0,0.1);
+    background:white;
+    padding:25px;
+    width:420px;
+    border-radius:12px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.1);
+}
+
+h1{
+    margin-top:0;
+}
+
+.current-values{
+    background:#eef6ff;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
 }
 
 .form-group{
-margin-bottom:15px;
+    margin-bottom:15px;
 }
 
 label{
-display:block;
-margin-bottom:6px;
-font-weight:bold;
+    display:block;
+    margin-bottom:6px;
+    font-weight:bold;
 }
 
 .input-wrapper{
-display:flex;
-gap:8px;
+    display:flex;
+    gap:8px;
 }
 
 input{
-flex:1;
-padding:8px;
-border-radius:8px;
-border:1px solid #ccc;
+    flex:1;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid #ccc;
 }
 
 .unit{
-padding-top:8px;
+    padding-top:8px;
 }
 
 button{
-width:100%;
-padding:10px;
-background:#2563eb;
-border:none;
-color:white;
-border-radius:8px;
-cursor:pointer;
+    width:100%;
+    padding:10px;
+    background:#2563eb;
+    border:none;
+    color:white;
+    border-radius:8px;
+    cursor:pointer;
 }
 
 button:hover{
-background:#1e4ed8;
+    background:#1e4ed8;
 }
 
-.current{
-background:#eef6ff;
-padding:12px;
-border-radius:10px;
-margin-bottom:20px;
+.success{
+    margin-top:10px;
+    color:green;
 }
 </style>
 </head>
@@ -74,26 +84,29 @@ margin-bottom:20px;
 
 <div class="card">
 
-<h2>Akvariumo parametrai</h2>
+<h1>Akvariumo parametrų redagavimas</h1>
 
-<div class="current">
-<p>Pavadinimas: <span id="currentName"></span></p>
-<p>Temperatūra: <span id="currentTemp"></span> °C</p>
-<p>pH: <span id="currentPh"></span></p>
-<p>Tūris: <span id="currentVolume"></span> l</p>
+<div class="current-values">
+<h3>Dabartinės reikšmės</h3>
+
+<p>Pavadinimas: <span id="currentName">Mano akvariumas</span></p>
+<p>Temperatūra: <span id="currentTemp">25</span> °C</p>
+<p>pH lygis: <span id="currentPh">7.2</span></p>
+<p>Tūris: <span id="currentVolume">120</span> l</p>
+
 </div>
 
 <form id="aquariumForm">
 
 <div class="form-group">
-<label>Pavadinimas</label>
-<input type="text" id="name">
+<label>Akvariumo pavadinimas</label>
+<input type="text" id="name" value="Mano akvariumas">
 </div>
 
 <div class="form-group">
 <label>Temperatūra</label>
 <div class="input-wrapper">
-<input type="number" id="temperature">
+<input type="number" id="temperature" value="25">
 <span class="unit">°C</span>
 </div>
 </div>
@@ -101,20 +114,22 @@ margin-bottom:20px;
 <div class="form-group">
 <label>pH lygis</label>
 <div class="input-wrapper">
-<input type="number" step="0.1" id="ph">
+<input type="number" id="ph" step="0.1" value="7.2">
 <span class="unit">pH</span>
 </div>
 </div>
 
 <div class="form-group">
-<label>Tūris</label>
+<label>Akvariumo tūris</label>
 <div class="input-wrapper">
-<input type="number" id="volume">
+<input type="number" id="volume" value="120">
 <span class="unit">l</span>
 </div>
 </div>
 
 <button type="submit">Išsaugoti</button>
+
+<div class="success" id="successMessage"></div>
 
 </form>
 
@@ -122,60 +137,25 @@ margin-bottom:20px;
 
 <script>
 
-class Aquarium{
-constructor(name, temperature, ph, volume){
-this.name = name;
-this.temperature = temperature;
-this.ph = ph;
-this.volume = volume;
-}
-}
+const form = document.getElementById("aquariumForm");
 
-let aquarium;
-
-function loadAquarium(){
-
-const saved = localStorage.getItem("aquarium");
-
-if(saved){
-aquarium = JSON.parse(saved);
-}else{
-aquarium = new Aquarium("Mano akvariumas",25,7.2,120);
-}
-
-updateDisplay();
-}
-
-function updateDisplay(){
-
-document.getElementById("currentName").textContent = aquarium.name;
-document.getElementById("currentTemp").textContent = aquarium.temperature;
-document.getElementById("currentPh").textContent = aquarium.ph;
-document.getElementById("currentVolume").textContent = aquarium.volume;
-
-document.getElementById("name").value = aquarium.name;
-document.getElementById("temperature").value = aquarium.temperature;
-document.getElementById("ph").value = aquarium.ph;
-document.getElementById("volume").value = aquarium.volume;
-
-}
-
-document.getElementById("aquariumForm").addEventListener("submit",function(e){
-
+form.addEventListener("submit", function(e){
 e.preventDefault();
 
-aquarium.name = document.getElementById("name").value;
-aquarium.temperature = document.getElementById("temperature").value;
-aquarium.ph = document.getElementById("ph").value;
-aquarium.volume = document.getElementById("volume").value;
+const name = document.getElementById("name").value;
+const temperature = document.getElementById("temperature").value;
+const ph = document.getElementById("ph").value;
+const volume = document.getElementById("volume").value;
 
-localStorage.setItem("aquarium", JSON.stringify(aquarium));
+document.getElementById("currentName").textContent = name;
+document.getElementById("currentTemp").textContent = temperature;
+document.getElementById("currentPh").textContent = ph;
+document.getElementById("currentVolume").textContent = volume;
 
-updateDisplay();
+document.getElementById("successMessage").textContent =
+"Parametrai sėkmingai atnaujinti!";
 
 });
-
-loadAquarium();
 
 </script>
 
