@@ -1,7 +1,7 @@
 import unittest
 import os
 import sqlite3
-from multiple_aquarium_logic import create_aquarium, get_all_aquariums, add_fish, DB_FILE
+from aquariumTests.multiple_aquarium_logic import create_aquarium, get_all_aquariums, add_fish, DB_FILE
 
 
 class TestAquariumLogic(unittest.TestCase):
