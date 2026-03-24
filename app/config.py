@@ -1,0 +1,1 @@
+## config file for CONST and app setting which will use all comand members in code

@@ -1,4 +1,4 @@
-import fish_db_logic
+import app.services.fish_db_logic as fish_db_logic
 
 
 def test_add_fish_returns_record():
