@@ -1,6 +1,6 @@
 import os
 import unittest
-from parametru_issaugojimas import Aquarium
+from app.services.aquarium_editing_save_logic import Aquarium
 
 
 class TestAquarium(unittest.TestCase):
