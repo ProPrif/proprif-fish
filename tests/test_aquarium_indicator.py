@@ -1,5 +1,5 @@
 import unittest
-from aquarium_indicator_logic import Fish, Aquarium, CompatibilityChecker, StatusColor, AggressionLevel
+from app.services.aquarium_indicator_logic import Fish, Aquarium, CompatibilityChecker, StatusColor, AggressionLevel
 
 class TestCompatibilityChecker(unittest.TestCase):
 

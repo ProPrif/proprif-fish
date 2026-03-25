@@ -1,37 +1,18 @@
 import sqlite3
-import os
+from app.config import APP_DB
+from app.database.aquarium_db_setup import create_aquarium_tables
 
-# Database setup
-DB_FILE = 'aquarium.db'
 
 def get_db_connection():
-    """Get database connection and create tables if they don't exist"""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row  # Enable column access by name
-    create_tables(conn)
+    conn = sqlite3.connect(APP_DB)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
-def create_tables(conn):
-    """Create database tables if they don't exist"""
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS aquariums (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            volume REAL NOT NULL
-        )
-    ''')
 
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS fish (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            aquarium_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            size REAL NOT NULL,
-            FOREIGN KEY (aquarium_id) REFERENCES aquariums (id) ON DELETE CASCADE
-        )
-    ''')
+def initialize_aquarium_module():
+    create_aquarium_tables()
 
-    conn.commit()
 
 def create_aquarium(name, volume):
     if not name or name.strip() == "":
@@ -44,9 +25,11 @@ def create_aquarium(name, volume):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute('INSERT INTO aquariums (name, volume) VALUES (?, ?)', (name, volume))
+        cursor.execute(
+            "INSERT INTO aquariums (name, volume) VALUES (?, ?)",
+            (name, volume)
+        )
         aquarium_id = cursor.lastrowid
-
         conn.commit()
 
         aquarium = {
@@ -61,65 +44,75 @@ def create_aquarium(name, volume):
             "message": "Akvariumas sėkmingai sukurtas.",
             "aquarium": aquarium
         }
+
     except sqlite3.Error as e:
         return {"success": False, "message": f"Duomenų bazės klaida: {str(e)}"}
+
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
+
 
 def get_all_aquariums():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Get all aquariums
-        cursor.execute('SELECT * FROM aquariums')
+        cursor.execute("SELECT * FROM aquariums")
         aquariums_data = cursor.fetchall()
 
         aquariums = []
         for aquarium_row in aquariums_data:
-            # Get fish for this aquarium
-            cursor.execute('SELECT name, size FROM fish WHERE aquarium_id = ?', (aquarium_row['id'],))
+            cursor.execute(
+                "SELECT name, size FROM aquarium_fish WHERE aquarium_id = ?",
+                (aquarium_row["id"],)
+            )
             fish_data = cursor.fetchall()
 
-            fish_list = [{"name": fish['name'], "size": fish['size']} for fish in fish_data]
+            fish_list = [
+                {"name": fish["name"], "size": fish["size"]}
+                for fish in fish_data
+            ]
 
             aquarium = {
-                "id": aquarium_row['id'],
-                "name": aquarium_row['name'],
-                "volume": aquarium_row['volume'],
+                "id": aquarium_row["id"],
+                "name": aquarium_row["name"],
+                "volume": aquarium_row["volume"],
                 "fish": fish_list
             }
             aquariums.append(aquarium)
 
         return aquariums
+
     except sqlite3.Error as e:
         print(f"Duomenų bazės klaida: {str(e)}")
         return []
+
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
 
-def add_fish(aquarium_id, fish_name, size):
+
+def add_fish_to_aquarium(aquarium_id, fish_name, size):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Check if aquarium exists
-        cursor.execute('SELECT id FROM aquariums WHERE id = ?', (aquarium_id,))
+        cursor.execute("SELECT id FROM aquariums WHERE id = ?", (aquarium_id,))
         if not cursor.fetchone():
             return "Akvariumas nerastas"
 
-        # Add fish
-        cursor.execute('INSERT INTO fish (aquarium_id, name, size) VALUES (?, ?, ?)',
-                      (aquarium_id, fish_name, size))
+        cursor.execute(
+            "INSERT INTO aquarium_fish (aquarium_id, name, size) VALUES (?, ?, ?)",
+            (aquarium_id, fish_name, size)
+        )
         conn.commit()
 
         return "Žuvis pridėta"
+
     except sqlite3.Error as e:
         return f"Duomenų bazės klaida: {str(e)}"
+
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
-
-

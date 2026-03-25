@@ -1,4 +1,4 @@
-from fish_data import fish_list
+from data.fish_list_data_test import fish_list
 from datetime import datetime
 
 

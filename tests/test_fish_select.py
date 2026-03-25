@@ -1,13 +1,13 @@
 import unittest
 from unittest.mock import patch
-import main
+import app.services.fish_select_logic as fish_select_logic
 
 
 class TestFishProgram(unittest.TestCase):
 
     def test_show_fish_list(self):
         with patch("builtins.print") as mocked_print:
-            main.show_fish_list()
+            fish_select_logic.show_fish_list()
 
         mocked_print.assert_any_call("\nŽUVŲ SĄRAŠAS")
         mocked_print.assert_any_call("----------------")
@@ -17,7 +17,7 @@ class TestFishProgram(unittest.TestCase):
 
     @patch("builtins.input", return_value="1")
     def test_select_fish_valid(self, mocked_input):
-        result = main.select_fish()
+        result = fish_select_logic.select_fish()
 
         self.assertIsNotNone(result)
         self.assertEqual(result["id"], 1)
@@ -26,7 +26,7 @@ class TestFishProgram(unittest.TestCase):
     @patch("builtins.input", return_value="abc")
     def test_select_fish_invalid_input(self, mocked_input):
         with patch("builtins.print") as mocked_print:
-            result = main.select_fish()
+            result = fish_select_logic.select_fish()
 
         self.assertIsNone(result)
         mocked_print.assert_called_with("Neteisingas pasirinkimas.")
@@ -34,7 +34,7 @@ class TestFishProgram(unittest.TestCase):
     @patch("builtins.input", return_value="999")
     def test_select_fish_not_found(self, mocked_input):
         with patch("builtins.print") as mocked_print:
-            result = main.select_fish()
+            result = fish_select_logic.select_fish()
 
         self.assertIsNone(result)
         mocked_print.assert_called_with("Tokia žuvis nerasta.")
@@ -52,7 +52,7 @@ class TestFishProgram(unittest.TestCase):
         }
 
         with patch("builtins.print") as mocked_print:
-            main.show_fish_info_window(fish)
+            fish_select_logic.show_fish_info_window(fish)
 
         mocked_print.assert_any_call("        ŽUVIES INFORMACIJOS LANGAS")
         mocked_print.assert_any_call("Pavadinimas: Neonas")
