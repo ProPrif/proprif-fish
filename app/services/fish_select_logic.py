@@ -1,0 +1,57 @@
+from fish_data import fish_list
+
+
+def show_fish_list():
+    print("\nŽUVŲ SĄRAŠAS")
+    print("----------------")
+
+    for fish in fish_list:
+        print(f'{fish["id"]}. {fish["name"]}')
+
+
+def select_fish():
+    choice = input("\nPasirinkite žuvies numerį: ")
+
+    if not choice.isdigit():
+        print("Neteisingas pasirinkimas.")
+        return None
+
+    fish_id = int(choice)
+
+    for fish in fish_list:
+        if fish["id"] == fish_id:
+            return fish
+
+    print("Tokia žuvis nerasta.")
+    return None
+
+def show_fish_info_window(fish):
+    print("\n" + "=" * 40)
+    print("        ŽUVIES INFORMACIJOS LANGAS")
+    print("=" * 40)
+
+    print(f"Pavadinimas: {fish['name']}")
+    print(f"Rekomenduojama temperatūra: {fish['temperature']}")
+    print(f"Rekomenduojamas pH intervalas: {fish['ph']}")
+    print(f"Maksimalus žuvies dydis: {fish['size']}")
+    print(f"Elgsena: {fish['behavior']}")
+
+    print("\nAprašymas:")
+    print(f"{fish['description']}")
+
+    print("=" * 40)
+
+    input("\nPaspauskite Enter, kad uždaryti informacijos langą...")
+
+
+def main():
+    show_fish_list()
+
+    selected_fish = select_fish()
+
+    if selected_fish:
+        show_fish_info_window(selected_fish)
+
+
+if __name__ == "__main__":
+    main()
