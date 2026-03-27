@@ -35,7 +35,7 @@ def create_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aquarium_id INTEGER NOT NULL,
             fish_id INTEGER NOT NULL,
-            FOREIGN KEY (aquarium_id) REFERENCES aquariums(id) ON DELETE CASCADE,
+            FOREIGN KEY (aquarium_id) REFERENCES aquarium(id) ON DELETE CASCADE,
             FOREIGN KEY (fish_id) REFERENCES fish_list(id) ON DELETE CASCADE
         )
     """)
