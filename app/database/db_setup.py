@@ -40,5 +40,15 @@ def create_tables():
         )
     """)
 
+    # Compatibility history table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compatibility_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            fish_names TEXT NOT NULL,
+            result TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()

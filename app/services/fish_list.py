@@ -1,4 +1,5 @@
-from data.fish_list_data_test import fish_list
+import sqlite3
+from app.config import APP_DB
 from datetime import datetime
 
 
@@ -6,8 +7,14 @@ def show_fish_list():
     print("\nGALIMOS ŽUVYS")
     print("----------------")
 
+    conn = sqlite3.connect(APP_DB)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, fish_name FROM fish_list")
+    fish_list = cursor.fetchall()
+    conn.close()
+
     for fish in fish_list:
-        print(f'{fish["id"]}. {fish["name"]}')
+        print(f'{fish[0]}. {fish[1]}')
 
 
 def get_selected_fish():
@@ -16,13 +23,26 @@ def get_selected_fish():
     ids = ids.split(",")
     selected = []
 
+    conn = sqlite3.connect(APP_DB)
+    cursor = conn.cursor()
+
     for id in ids:
         id = int(id.strip())
+        cursor.execute("SELECT * FROM fish_list WHERE id = ?", (id,))
+        fish = cursor.fetchone()
 
-        for fish in fish_list:
-            if fish["id"] == id:
-                selected.append(fish)
+        if fish:
+            selected.append({
+                "id": fish[0],
+                "name": fish[1],
+                "temperature": f"{fish[4]}-{fish[5]}°C",
+                "ph": f"{fish[6]}-{fish[7]}",
+                "size": f"{fish[3]} cm",
+                "behavior": fish[2]
+            })
 
+    conn.close()
+    
     return selected
 
 
@@ -39,10 +59,14 @@ def save_to_history(selected_fish, result):
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     fish_names = [fish["name"] for fish in selected_fish]
 
-    line = f"{time} | Žuvys: {', '.join(fish_names)} | Rezultatas: {result}\n"
-
-    with open("history.txt", "a", encoding="utf-8") as file:
-        file.write(line)
+    conn = sqlite3.connect(APP_DB)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO compatibility_history (timestamp, fish_names, result)
+        VALUES (?, ?, ?)
+    """, (time, ', '.join(fish_names), result))
+    conn.commit()
+    conn.close()
 
 def delete_history_entry():
     try:
@@ -85,19 +109,18 @@ def show_history():
     print("\nSUDERINAMUMO TIKRINIMŲ ISTORIJA")
     print("--------------------------------")
 
-    try:
-        with open("history.txt", "r", encoding="utf-8") as file:
-            lines = file.readlines()
+    conn = sqlite3.connect(APP_DB)
+    cursor = conn.cursor()
+    cursor.execute("SELECT timestamp, fish_names, result FROM compatibility_history ORDER BY timestamp DESC LIMIT 10")
+    history_entries = cursor.fetchall()
+    conn.close()
 
-            if not lines:
-                print("Istorija tuščia.")
-                return
+    if not history_entries:
+        print("Istorija tuščia.")
+        return
 
-            for line in lines[-10:]:
-                print(line.strip())
-
-    except FileNotFoundError:
-        print("Istorijos failas dar nesukurtas.")
+    for entry in history_entries:
+        print(f"{entry[0]} | Žuvys: {entry[1]} | Rezultatas: {entry[2]}")
 
 
 def main():
@@ -118,7 +141,7 @@ def main():
             if result:
                 print("\nRezultatas:", result)
                 save_to_history(selected_fish, result)
-                print("Rezultatas išsaugotas į history.txt")
+                print("Rezultatas išsaugotas į duomenų bazę")
 
         elif choice == "2":
             show_history()
