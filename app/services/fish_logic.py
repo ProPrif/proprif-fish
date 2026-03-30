@@ -1,6 +1,6 @@
 import sqlite3
 from app.config import APP_DB
-from app.database.db_setup import create_fish_table
+from app.database.db_setup import create_tables
 
 
 def get_db_connection():
