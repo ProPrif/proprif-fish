@@ -1,6 +1,6 @@
 import sqlite3
 from app.config import APP_DB
-from app.database.fish_db_setup import create_fish_table
+from app.database.db_setup import create_fish_table
 
 
 def get_db_connection():
@@ -13,24 +13,38 @@ def initialize_fish_module():
     create_fish_table()
 
 
-def add_fish(name, temperature, aggression, size):
+def add_fish(fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute("""
-            INSERT INTO fish_catalog (name, temperature, aggression, size)
-            VALUES (?, ?, ?, ?)
-        """, (name, temperature, aggression, size))
+            INSERT INTO fish_list (
+                fish_name,
+                aggression,
+                size,
+                temp_min,
+                temp_max,
+                ph_min,
+                ph_max
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max))
 
         conn.commit()
 
         cursor.execute("""
-            SELECT * FROM fish_catalog
-            WHERE name = ? AND temperature = ? AND aggression = ? AND size = ?
+            SELECT * FROM fish_list
+            WHERE fish_name = ?
+              AND aggression = ?
+              AND size = ?
+              AND temp_min = ?
+              AND temp_max = ?
+              AND ph_min = ?
+              AND ph_max = ?
             ORDER BY id DESC
             LIMIT 1
-        """, (name, temperature, aggression, size))
+        """, (fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max))
 
         result = cursor.fetchone()
 
@@ -53,7 +67,56 @@ def get_all_fish():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM fish_catalog ORDER BY id")
+        cursor.execute("SELECT * FROM fish_list ORDER BY id")
+        rows = cursor.fetchall()
+
+        return [dict(row) for row in rows]
+
+    except sqlite3.Error as e:
+        print(f"Duomenų bazės klaida: {str(e)}")
+        return []
+
+    finally:
+        if "conn" in locals():
+            conn.close()
+
+
+def get_fish_by_id(fish_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT * FROM fish_list
+            WHERE id = ?
+        """, (fish_id,))
+
+        result = cursor.fetchone()
+
+        if result:
+            return dict(result)
+
+        return None
+
+    except sqlite3.Error as e:
+        print(f"Duomenų bazės klaida: {str(e)}")
+        return None
+
+    finally:
+        if "conn" in locals():
+            conn.close()
+
+
+def get_fish_parameters():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max
+            FROM fish_list
+            ORDER BY id
+        """)
         rows = cursor.fetchall()
 
         return [dict(row) for row in rows]
@@ -72,7 +135,7 @@ def clear_fish_table():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM fish_catalog")
+        cursor.execute("DELETE FROM fish_list")
         conn.commit()
 
     except sqlite3.Error as e:
