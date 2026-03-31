@@ -45,8 +45,10 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS compatibility_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
+            aquarium_id INTEGER,
             fish_names TEXT NOT NULL,
-            result TEXT NOT NULL
+            result TEXT NOT NULL,
+            FOREIGN KEY (aquarium_id) REFERENCES aquarium(id) ON DELETE SET NULL
         )
     """)
 
