@@ -1,68 +1,120 @@
-import json
+import sqlite3
+from dataclasses import dataclass
+from typing import Any
+
+from app.config import APP_DB
+from app.services.aquarium_load import calculate_tank_load
 
 
-class Aquarium:
-    def __init__(self, name, temperature, ph, volume):
-        self.name = name
-        self.temperature = temperature
-        self.ph = ph
-        self.volume = volume
+class AquariumUpdateError(ValueError):
+    pass
 
-    def update_parameters(self, name, temperature, ph, volume):
-        self.name = name
-        self.temperature = temperature
-        self.ph = ph
-        self.volume = volume
 
-    def to_dict(self):
+@dataclass
+class AquariumUpdateResult:
+    success: bool
+    message: str
+    aquarium: dict[str, Any]
+    compatibility: dict[str, Any]
+
+
+def get_db_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(APP_DB)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def validate_aquarium_data(name: str, volume: float | int) -> None:
+    if not isinstance(name, str) or not name.strip():
+        raise AquariumUpdateError("Akvariumo pavadinimas yra privalomas.")
+
+    try:
+        normalized_volume = float(volume)
+    except (TypeError, ValueError) as exc:
+        raise AquariumUpdateError("Akvariumo litrai turi būti skaičius.") from exc
+
+    if normalized_volume <= 0:
+        raise AquariumUpdateError("Akvariumo litrai turi būti didesni už 0.")
+
+
+def get_aquarium_by_id(aquarium_id: int) -> dict[str, Any]:
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, aquarium_name, volume FROM aquarium WHERE id = ?",
+            (aquarium_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise AquariumUpdateError("Akvariumas nerastas.")
+
         return {
-            "name": self.name,
-            "temperature": self.temperature,
-            "ph": self.ph,
-            "volume": self.volume
+            "id": row["id"],
+            "name": row["aquarium_name"],
+            "volume": row["volume"],
         }
-
-    def save_to_file(self, filename):
-        with open(filename, "w", encoding="utf-8") as file:
-            json.dump(self.to_dict(), file, indent=4, ensure_ascii=False)
-
-    @staticmethod
-    def load_from_file(filename):
-        try:
-            with open(filename, "r", encoding="utf-8") as file:
-                data = json.load(file)
-                return Aquarium(
-                    data["name"],
-                    data["temperature"],
-                    data["ph"],
-                    data["volume"]
-                )
-        except FileNotFoundError:
-            return Aquarium("Mano akvariumas", 25.0, 7.2, 120.0)
+    finally:
+        conn.close()
 
 
-def main():
-    filename = "aquarium_data.json"
+def build_indicator(status: str) -> dict[str, str]:
+    mapping = {
+        "safe": {
+            "status": "safe",
+            "label": "Suderinama",
+            "color": "green",
+        },
+        "warning": {
+            "status": "warning",
+            "label": "Atsargiai",
+            "color": "yellow",
+        },
+    }
+    return mapping.get(
+        status,
+        {
+            "status": "unknown",
+            "label": "Nežinoma",
+            "color": "grey",
+        },
+    )
 
-    aquarium = Aquarium.load_from_file(filename)
 
-    print("Dabartiniai akvariumo duomenys:")
-    print(f"Pavadinimas: {aquarium.name}")
-    print(f"Temperatūra: {aquarium.temperature} °C")
-    print(f"pH: {aquarium.ph}")
-    print(f"Tūris: {aquarium.volume} l")
-    print()
+def update_aquarium(aquarium_id: int, name: str, volume: float | int) -> dict[str, Any]:
+    validate_aquarium_data(name, volume)
+    normalized_name = name.strip()
+    normalized_volume = float(volume)
 
-    new_name = input("Įveskite naują akvariumo pavadinimą: ")
-    new_temperature = float(input("Įveskite naują temperatūrą (°C): "))
-    new_ph = float(input("Įveskite naują pH lygį: "))
-    new_volume = float(input("Įveskite naują tūrį (l): "))
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM aquarium WHERE id = ?", (aquarium_id,))
+        if not cursor.fetchone():
+            raise AquariumUpdateError("Akvariumas nerastas.")
 
-    aquarium.update_parameters(new_name, new_temperature, new_ph, new_volume)
-    aquarium.save_to_file(filename)
+        cursor.execute(
+            """
+            UPDATE aquarium
+            SET aquarium_name = ?, volume = ?
+            WHERE id = ?
+            """,
+            (normalized_name, normalized_volume, aquarium_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
-    print("\nParametrai sėkmingai atnaujinti ir išsaugoti sistemoje.")
+    updated_aquarium = get_aquarium_by_id(aquarium_id)
+    load_result = calculate_tank_load(aquarium_id)
 
-
-if __name__ == "__main__":
-    main()
+    return {
+        "success": True,
+        "message": "Akvariumo parametrai sėkmingai atnaujinti.",
+        "aquarium": updated_aquarium,
+        "compatibility": {
+            "indicator": build_indicator(load_result.get("status")),
+            "load": load_result,
+        },
+    }
