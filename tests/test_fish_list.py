@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, mock_open, ANY
 import app.services.fish_list as fish_list
 
 
@@ -24,8 +24,8 @@ class TestFishCompatibility(unittest.TestCase):
 
         self.assertEqual(result, "Suderinamos")
 
-    @patch("builtins.open", new_callable=mock_open)
-    def test_save_to_history(self, mocked_file):
+    @patch("app.services.fish_list.sqlite3.connect")
+    def test_save_to_history(self, mocked_connect):
         selected_fish = [
             {"id": 1, "name": "Neonas"},
             {"id": 2, "name": "Gupija"}
@@ -34,31 +34,51 @@ class TestFishCompatibility(unittest.TestCase):
 
         fish_list.save_to_history(selected_fish, result)
 
-        mocked_file.assert_called_once_with("history.txt", "a", encoding="utf-8")
-        handle = mocked_file()
+        mocked_connect.assert_called_once()
+        conn = mocked_connect.return_value
+        cursor = conn.cursor.return_value
 
-        written_text = "".join(call.args[0] for call in handle.write.call_args_list)
+        cursor.execute.assert_called_once_with(
+            """
+        INSERT INTO compatibility_history (timestamp, fish_names, result)
+        VALUES (?, ?, ?)
+    """,
+            (ANY, "Neonas, Gupija", "Suderinamos")
+        )
+        conn.commit.assert_called_once()
+        conn.close.assert_called_once()
 
-        self.assertIn("Žuvys: Neonas, Gupija", written_text)
-        self.assertIn("Rezultatas: Suderinamos", written_text)
+    @patch("app.services.fish_list.sqlite3.connect")
+    def test_show_history_empty(self, mocked_connect):
+        conn = mocked_connect.return_value
+        cursor = conn.cursor.return_value
+        cursor.fetchall.return_value = []
 
-    @patch("builtins.open", new_callable=mock_open, read_data="")
-    def test_show_history_empty(self, mocked_file):
         with patch("builtins.print") as mocked_print:
             fish_list.show_history()
 
+        cursor.execute.assert_called_once_with(
+            "SELECT timestamp, fish_names, result FROM compatibility_history ORDER BY timestamp DESC LIMIT 10"
+        )
+        conn.close.assert_called_once()
         mocked_print.assert_any_call("Istorija tuščia.")
 
-    @patch(
-        "builtins.open",
-        new_callable=mock_open,
-        read_data="2026-01-01 10:00:00 | Žuvys: Neonas | Rezultatas: Suderinamos\n"
-                  "2026-01-02 11:00:00 | Žuvys: Gupija | Rezultatas: Suderinamos\n"
-    )
-    def test_show_history_with_entries(self, mocked_file):
+    @patch("app.services.fish_list.sqlite3.connect")
+    def test_show_history_with_entries(self, mocked_connect):
+        conn = mocked_connect.return_value
+        cursor = conn.cursor.return_value
+        cursor.fetchall.return_value = [
+            ("2026-01-01 10:00:00", "Neonas", "Suderinamos"),
+            ("2026-01-02 11:00:00", "Gupija", "Suderinamos")
+        ]
+
         with patch("builtins.print") as mocked_print:
             fish_list.show_history()
 
+        cursor.execute.assert_called_once_with(
+            "SELECT timestamp, fish_names, result FROM compatibility_history ORDER BY timestamp DESC LIMIT 10"
+        )
+        conn.close.assert_called_once()
         mocked_print.assert_any_call("2026-01-01 10:00:00 | Žuvys: Neonas | Rezultatas: Suderinamos")
         mocked_print.assert_any_call("2026-01-02 11:00:00 | Žuvys: Gupija | Rezultatas: Suderinamos")
 
@@ -85,13 +105,6 @@ class TestFishCompatibility(unittest.TestCase):
             "2026-01-02 11:00:00 | Žuvys: Gupija | Rezultatas: Suderinamos\n",
             written_text
         )
-
-    @patch("builtins.open", side_effect=FileNotFoundError)
-    def test_show_history_file_not_found(self, mocked_open):
-        with patch("builtins.print") as mocked_print:
-            fish_list.show_history()
-
-        mocked_print.assert_any_call("Istorijos failas dar nesukurtas.")
 
     @patch("builtins.open", side_effect=FileNotFoundError)
     def test_delete_history_entry_file_not_found(self, mocked_open):
