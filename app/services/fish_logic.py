@@ -10,7 +10,7 @@ def get_db_connection():
 
 
 def initialize_fish_module():
-    create_fish_table()
+    create_tables()
 
 
 def add_fish(fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max):
