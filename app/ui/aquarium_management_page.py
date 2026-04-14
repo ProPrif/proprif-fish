@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -27,6 +28,7 @@ try:
     from app.database.db_setup import create_tables
     from app.services.aquarium_load import calculate_tank_load
     from app.services.multiple_aquarium_logic import get_all_aquariums
+    from app.services.aquarium_indicator_logic import CompatibilityChecker
     from app.services.remove_fish_from_aquarium import (
         recalculate_aquarium_balance,
         remove_fish_from_aquarium,
@@ -38,6 +40,7 @@ except ModuleNotFoundError:
     from app.database.db_setup import create_tables
     from app.services.aquarium_load import calculate_tank_load
     from app.services.multiple_aquarium_logic import get_all_aquariums
+    from app.services.aquarium_indicator_logic import CompatibilityChecker
     from app.services.remove_fish_from_aquarium import (
         recalculate_aquarium_balance,
         remove_fish_from_aquarium,
@@ -137,11 +140,62 @@ class AquariumManagementPage(QWidget):
         self.quantity_input.setRange(1, 999)
         self.quantity_input.setValue(1)
         self.quantity_input.setStyleSheet("color: #111827; background-color: white;")
+        self.quantity_input.valueChanged.connect(self._refresh_candidate_indicator)
         quantity_row.addWidget(self.quantity_input)
         quantity_row.addStretch(1)
 
         self.selected_fish_label = QLabel("Selected fish: none", panel)
         self.selected_fish_label.setStyleSheet("color: #4A5568;")
+
+        indicator_card = QWidget(panel)
+        indicator_card.setStyleSheet(
+            "background-color: white; border: 1px solid #CBD5E0; border-radius: 12px;"
+        )
+        indicator_layout = QVBoxLayout(indicator_card)
+        indicator_layout.setContentsMargins(12, 12, 12, 12)
+        indicator_layout.setSpacing(8)
+
+        indicator_title = QLabel("Selected Fish Compatibility", indicator_card)
+        indicator_title.setStyleSheet("font-size: 15px; font-weight: 600; color: #1F2937;")
+
+        indicator_header = QHBoxLayout()
+        indicator_header.setSpacing(8)
+
+        self.candidate_indicator_button = QToolButton(indicator_card)
+        self.candidate_indicator_button.setText("Status: -")
+        self.candidate_indicator_button.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.candidate_indicator_button.setCursor(Qt.PointingHandCursor)
+        self.candidate_indicator_button.clicked.connect(self._toggle_candidate_details)
+        self.candidate_indicator_button.setStyleSheet(self._badge_style("#718096"))
+
+        self.candidate_indicator_hint = QLabel(
+            "Click the indicator to show or hide mismatch codes.",
+            indicator_card,
+        )
+        self.candidate_indicator_hint.setWordWrap(True)
+        self.candidate_indicator_hint.setStyleSheet("color: #4B5563;")
+
+        indicator_header.addWidget(self.candidate_indicator_button)
+        indicator_header.addWidget(self.candidate_indicator_hint, stretch=1)
+
+        self.candidate_summary_label = QLabel(
+            "Choose a fish and quantity to preview aquarium compatibility.",
+            indicator_card,
+        )
+        self.candidate_summary_label.setWordWrap(True)
+        self.candidate_summary_label.setStyleSheet("color: #1F2937;")
+
+        self.candidate_details_label = QLabel("", indicator_card)
+        self.candidate_details_label.setWordWrap(True)
+        self.candidate_details_label.setStyleSheet(
+            "color: #7F1D1D; background-color: #FEF2F2; border-radius: 8px; padding: 8px;"
+        )
+        self.candidate_details_label.hide()
+
+        indicator_layout.addWidget(indicator_title)
+        indicator_layout.addLayout(indicator_header)
+        indicator_layout.addWidget(self.candidate_summary_label)
+        indicator_layout.addWidget(self.candidate_details_label)
 
         self.add_button = QPushButton("Add To Aquarium", panel)
         self.add_button.clicked.connect(self._handle_add_fish)
@@ -154,6 +208,7 @@ class AquariumManagementPage(QWidget):
         layout.addWidget(self.search_results, stretch=1)
         layout.addLayout(quantity_row)
         layout.addWidget(self.selected_fish_label)
+        layout.addWidget(indicator_card)
         layout.addWidget(self.add_button)
         layout.addWidget(self.feedback_label)
         return panel
@@ -230,14 +285,17 @@ class AquariumManagementPage(QWidget):
             self.search_results.setCurrentRow(0)
         else:
             self.selected_fish_label.setText("Selected fish: none")
+            self._clear_candidate_indicator()
 
     def _update_selected_fish_label(self) -> None:
         item = self.search_results.currentItem()
         if item is None:
             self.selected_fish_label.setText("Selected fish: none")
+            self._clear_candidate_indicator()
             return
 
         self.selected_fish_label.setText(f"Selected fish: {item.data(Qt.UserRole + 1)}")
+        self._refresh_candidate_indicator()
 
     def _current_aquarium_id(self) -> int | None:
         current_data = self.aquarium_selector.currentData()
@@ -306,6 +364,7 @@ class AquariumManagementPage(QWidget):
             self.compatibility_details_label.setText(
                 "Compatibility details will appear here after aquarium data is loaded."
             )
+            self._clear_candidate_indicator()
             self._update_remove_button_state()
             return
 
@@ -336,6 +395,7 @@ class AquariumManagementPage(QWidget):
         )
 
         self._update_compatibility_labels(aquarium["id"])
+        self._refresh_candidate_indicator()
         self._update_remove_button_state()
 
     def _update_compatibility_labels(self, aquarium_id: int) -> None:
@@ -366,6 +426,58 @@ class AquariumManagementPage(QWidget):
             f"Overall compatibility is {overall_status}. {temp_ph_summary}. "
             "The view refreshes immediately after add or remove actions."
         )
+
+    def _refresh_candidate_indicator(self) -> None:
+        aquarium_id = self._current_aquarium_id()
+        item = self.search_results.currentItem()
+
+        if aquarium_id is None or item is None:
+            self._clear_candidate_indicator()
+            return
+
+        fish_id = int(item.data(Qt.UserRole))
+        fish_name = str(item.data(Qt.UserRole + 1))
+        quantity = self.quantity_input.value()
+
+        result = CompatibilityChecker.evaluate_candidate_for_aquarium(
+            aquarium_id=aquarium_id,
+            fish_id=fish_id,
+            quantity_to_add=quantity,
+        )
+
+        status_map = {
+            "GREEN": ("Status: GREEN", "#2F855A"),
+            "YELLOW": ("Status: YELLOW", "#B7791F"),
+            "RED": ("Status: RED", "#C53030"),
+        }
+        status_text, status_color = status_map.get(result.get("status"), ("Status: -", "#718096"))
+        self.candidate_indicator_button.setText(status_text)
+        self.candidate_indicator_button.setStyleSheet(self._badge_style(status_color))
+
+        aquarium_name = result.get("aquarium_name") or f"Aquarium #{aquarium_id}"
+        self.candidate_summary_label.setText(
+            f"{fish_name} x {quantity} preview for {aquarium_name}: {result.get('label', 'Unknown')}"
+        )
+
+        details_lines = []
+        for code, message in zip(result.get("codes", []), result.get("messages", [])):
+            details_lines.append(f"{code}: {message}")
+
+        self.candidate_details_label.setText("\n".join(details_lines))
+
+    def _toggle_candidate_details(self) -> None:
+        if not self.candidate_details_label.text().strip():
+            return
+        self.candidate_details_label.setVisible(not self.candidate_details_label.isVisible())
+
+    def _clear_candidate_indicator(self) -> None:
+        self.candidate_indicator_button.setText("Status: -")
+        self.candidate_indicator_button.setStyleSheet(self._badge_style("#718096"))
+        self.candidate_summary_label.setText(
+            "Choose a fish and quantity to preview aquarium compatibility."
+        )
+        self.candidate_details_label.clear()
+        self.candidate_details_label.hide()
 
     def _calculate_temp_ph_summary(self, aquarium_id: int) -> str:
         conn = sqlite3.connect(APP_DB)
