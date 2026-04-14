@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QLabel, QMainWindow, QPushButton, QVBoxLayout, QWi
 
 from app.ui.aquarium_management_page import AquariumManagementPage
 from app.ui.aquarium_page import AquariumPage
+from app.ui.fish_select_window import FishSelectWindow
 
 
 class MainWindow(QMainWindow):
@@ -21,6 +22,7 @@ class MainWindow(QMainWindow):
 		layout.setSpacing(12)
 		self.management_window = None
 		self.aquarium_window = None
+		self.fish_select_window = None
 
 		layout.addWidget(self._build_welcome_page())
 		self.setCentralWidget(container)
@@ -39,8 +41,12 @@ class MainWindow(QMainWindow):
 		subtitle.setAlignment(Qt.AlignCenter)
 		subtitle.setStyleSheet("font-size: 14px; color: #555;")
 
+		fish_select_button = QPushButton("Fish Select", page)
+		fish_select_button.setFixedHeight(36)
+		fish_select_button.clicked.connect(self._open_fish_select)
+
 		buttons = []
-		for label in ("Fish List", "Compatibility", "History"):
+		for label in ("Compatibility", "History"):
 			button = QPushButton(label, page)
 			button.setEnabled(False)
 			button.setFixedHeight(36)
@@ -58,6 +64,7 @@ class MainWindow(QMainWindow):
 		layout.addWidget(title)
 		layout.addWidget(subtitle)
 		layout.addSpacing(16)
+		layout.addWidget(fish_select_button)
 		for button in buttons:
 			layout.addWidget(button)
 		layout.addWidget(aquariums_button)
@@ -70,6 +77,11 @@ class MainWindow(QMainWindow):
 		self.aquarium_window = AquariumPage()
 		self.aquarium_window.setWindowTitle("Proprif Fish - Aquariums")
 		self.aquarium_window.show()
+
+	def _open_fish_select(self) -> None:
+		if self.fish_select_window is None:
+			self.fish_select_window = FishSelectWindow(parent=self)
+		self.fish_select_window.show()
 
 	def _open_aquarium_management(self) -> None:
 		self.management_window = AquariumManagementPage()
