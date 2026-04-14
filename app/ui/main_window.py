@@ -3,6 +3,8 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
+from app.ui.aquarium_management_page import AquariumManagementPage
+
 
 class MainWindow(QMainWindow):
 	"""Minimal welcome window for the application."""
@@ -16,6 +18,7 @@ class MainWindow(QMainWindow):
 		layout = QVBoxLayout(container)
 		layout.setContentsMargins(24, 24, 24, 24)
 		layout.setSpacing(12)
+		self.management_window = None
 
 		layout.addWidget(self._build_welcome_page())
 		self.setCentralWidget(container)
@@ -41,12 +44,22 @@ class MainWindow(QMainWindow):
 			button.setFixedHeight(36)
 			buttons.append(button)
 
+		manage_button = QPushButton("Manage Aquariums", page)
+		manage_button.setFixedHeight(40)
+		manage_button.clicked.connect(self._open_aquarium_management)
+
 		layout.addStretch(1)
 		layout.addWidget(title)
 		layout.addWidget(subtitle)
 		layout.addSpacing(16)
 		for button in buttons:
 			layout.addWidget(button)
+		layout.addWidget(manage_button)
 		layout.addStretch(1)
 
 		return page
+
+	def _open_aquarium_management(self) -> None:
+		self.management_window = AquariumManagementPage()
+		self.management_window.setWindowTitle("Proprif Fish - Manage Aquariums")
+		self.management_window.show()
