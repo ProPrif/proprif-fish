@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QLabel, QMainWindow, QPushButton, QVBoxLayout, QWi
 from app.ui.aquarium_management_page import AquariumManagementPage
 from app.ui.aquarium_page import AquariumPage
 from app.ui.fish_select_window import FishSelectWindow
+from app.ui.history_window import HistoryWindow
 
 
 class MainWindow(QMainWindow):
@@ -23,6 +24,7 @@ class MainWindow(QMainWindow):
 		self.management_window = None
 		self.aquarium_window = None
 		self.fish_select_window = None
+		self.history_window = None
 
 		layout.addWidget(self._build_welcome_page())
 		self.setCentralWidget(container)
@@ -45,12 +47,13 @@ class MainWindow(QMainWindow):
 		fish_select_button.setFixedHeight(36)
 		fish_select_button.clicked.connect(self._open_fish_select)
 
-		buttons = []
-		for label in ("Compatibility", "History"):
-			button = QPushButton(label, page)
-			button.setEnabled(False)
-			button.setFixedHeight(36)
-			buttons.append(button)
+		compat_button = QPushButton("Compatibility", page)
+		compat_button.setEnabled(False)
+		compat_button.setFixedHeight(36)
+
+		history_button = QPushButton("History", page)
+		history_button.setFixedHeight(36)
+		history_button.clicked.connect(self._open_history)
 
 		aquariums_button = QPushButton("Aquariums", page)
 		aquariums_button.setFixedHeight(40)
@@ -65,8 +68,8 @@ class MainWindow(QMainWindow):
 		layout.addWidget(subtitle)
 		layout.addSpacing(16)
 		layout.addWidget(fish_select_button)
-		for button in buttons:
-			layout.addWidget(button)
+		layout.addWidget(compat_button)
+		layout.addWidget(history_button)
 		layout.addWidget(aquariums_button)
 		layout.addWidget(manage_button)
 		layout.addStretch(1)
@@ -82,6 +85,11 @@ class MainWindow(QMainWindow):
 		if self.fish_select_window is None:
 			self.fish_select_window = FishSelectWindow(parent=self)
 		self.fish_select_window.show()
+
+	def _open_history(self) -> None:
+		if self.history_window is None:
+			self.history_window = HistoryWindow(parent=self)
+		self.history_window.show()
 
 	def _open_aquarium_management(self) -> None:
 		self.management_window = AquariumManagementPage()

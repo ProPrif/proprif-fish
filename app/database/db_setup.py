@@ -46,6 +46,7 @@ def create_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
             aquarium_id INTEGER,
+            aquarium_name TEXT,
             fish_names TEXT NOT NULL,
             result TEXT NOT NULL,
             FOREIGN KEY (aquarium_id) REFERENCES aquarium(id) ON DELETE SET NULL
