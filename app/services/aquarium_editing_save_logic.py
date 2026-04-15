@@ -1,5 +1,4 @@
 import sqlite3
-from dataclasses import dataclass
 from typing import Any
 
 from app.config import APP_DB
@@ -8,14 +7,6 @@ from app.services.aquarium_load import calculate_tank_load
 
 class AquariumUpdateError(ValueError):
     pass
-
-
-@dataclass
-class AquariumUpdateResult:
-    success: bool
-    message: str
-    aquarium: dict[str, Any]
-    compatibility: dict[str, Any]
 
 
 def get_db_connection() -> sqlite3.Connection:
@@ -27,15 +18,15 @@ def get_db_connection() -> sqlite3.Connection:
 
 def validate_aquarium_data(name: str, volume: float | int) -> None:
     if not isinstance(name, str) or not name.strip():
-        raise AquariumUpdateError("Akvariumo pavadinimas yra privalomas.")
+        raise AquariumUpdateError("Aquarium name is required.")
 
     try:
         normalized_volume = float(volume)
     except (TypeError, ValueError) as exc:
-        raise AquariumUpdateError("Akvariumo litrai turi būti skaičius.") from exc
+        raise AquariumUpdateError("Aquarium volume must be a number.") from exc
 
     if normalized_volume <= 0:
-        raise AquariumUpdateError("Akvariumo litrai turi būti didesni už 0.")
+        raise AquariumUpdateError("Aquarium volume must be greater than 0.")
 
 
 def get_aquarium_by_id(aquarium_id: int) -> dict[str, Any]:
@@ -48,7 +39,7 @@ def get_aquarium_by_id(aquarium_id: int) -> dict[str, Any]:
         )
         row = cursor.fetchone()
         if not row:
-            raise AquariumUpdateError("Akvariumas nerastas.")
+            raise AquariumUpdateError("Aquarium not found.")
 
         return {
             "id": row["id"],
@@ -63,12 +54,12 @@ def build_indicator(status: str) -> dict[str, str]:
     mapping = {
         "safe": {
             "status": "safe",
-            "label": "Suderinama",
+            "label": "Safe",
             "color": "green",
         },
         "warning": {
             "status": "warning",
-            "label": "Atsargiai",
+            "label": "Warning",
             "color": "yellow",
         },
     }
@@ -76,7 +67,7 @@ def build_indicator(status: str) -> dict[str, str]:
         status,
         {
             "status": "unknown",
-            "label": "Nežinoma",
+            "label": "Unknown",
             "color": "grey",
         },
     )
@@ -92,7 +83,7 @@ def update_aquarium(aquarium_id: int, name: str, volume: float | int) -> dict[st
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM aquarium WHERE id = ?", (aquarium_id,))
         if not cursor.fetchone():
-            raise AquariumUpdateError("Akvariumas nerastas.")
+            raise AquariumUpdateError("Aquarium not found.")
 
         cursor.execute(
             """
@@ -111,7 +102,7 @@ def update_aquarium(aquarium_id: int, name: str, volume: float | int) -> dict[st
 
     return {
         "success": True,
-        "message": "Akvariumo parametrai sėkmingai atnaujinti.",
+        "message": "Aquarium details updated successfully.",
         "aquarium": updated_aquarium,
         "compatibility": {
             "indicator": build_indicator(load_result.get("status")),

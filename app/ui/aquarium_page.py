@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 try:
     from app.config import APP_DB
     from app.database.db_setup import create_tables
+    from app.services.aquarium_editing_save_logic import AquariumUpdateError, update_aquarium
     from app.services.aquarium_load import calculate_tank_load
     from app.services.multiple_aquarium_logic import create_aquarium, get_all_aquariums
     from app.services.remove_fish_from_aquarium import (
@@ -37,6 +38,7 @@ except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[2]))
     from app.config import APP_DB
     from app.database.db_setup import create_tables
+    from app.services.aquarium_editing_save_logic import AquariumUpdateError, update_aquarium
     from app.services.aquarium_load import calculate_tank_load
     from app.services.multiple_aquarium_logic import create_aquarium, get_all_aquariums
     from app.services.remove_fish_from_aquarium import (
@@ -45,38 +47,84 @@ except ModuleNotFoundError:
     )
 
 
-class CreateAquariumDialog(QDialog):
-    """Dialog for creating a new aquarium with the fields supported by the backend."""
+class AquariumDetailsDialog(QDialog):
+    """Dialog used for both creating and editing aquarium details."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        title: str,
+        helper_text: str,
+        confirm_label: str,
+        initial_name: str = "",
+        initial_volume: float = 54.0,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Add Aquarium")
+        self.setWindowTitle(title)
         self.setModal(True)
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(380)
+        self.setStyleSheet(
+            "QDialog { background-color: #F8FAFC; color: #111827; }"
+            "QLineEdit, QDoubleSpinBox { background-color: white; border: 1px solid #CBD5E0; "
+            "border-radius: 8px; padding: 6px; color: #111827; }"
+            "QPushButton { min-height: 34px; }"
+        )
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(12)
+
+        heading = QLabel(title, self)
+        heading.setStyleSheet("font-size: 20px; font-weight: 700; color: #1E3A5F;")
+
+        helper = QLabel(helper_text, self)
+        helper.setWordWrap(True)
+        helper.setStyleSheet("color: #475569;")
+
         form_layout = QFormLayout()
+        form_layout.setSpacing(10)
 
         self.name_input = QLineEdit(self)
         self.name_input.setPlaceholderText("Aquarium name")
+        self.name_input.setText(initial_name)
 
         self.volume_input = QDoubleSpinBox(self)
         self.volume_input.setRange(1, 100000)
         self.volume_input.setDecimals(1)
-        self.volume_input.setValue(54.0)
+        self.volume_input.setValue(max(1.0, float(initial_volume)))
         self.volume_input.setSuffix(" L")
 
+        layout.addWidget(heading)
+        layout.addWidget(helper)
         form_layout.addRow("Name:", self.name_input)
         form_layout.addRow("Volume:", self.volume_input)
         layout.addLayout(form_layout)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            self,
+        )
+        ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        cancel_button = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        if ok_button is not None:
+            ok_button.setText(confirm_label)
+        if cancel_button is not None:
+            cancel_button.setText("Cancel")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
     def get_values(self) -> tuple[str, float]:
         return self.name_input.text().strip(), float(self.volume_input.value())
+
+    def accept(self) -> None:
+        if not self.name_input.text().strip():
+            QMessageBox.warning(self, "Invalid aquarium", "Aquarium name is required.")
+            self.name_input.setFocus()
+            return
+
+        super().accept()
 
 
 class AquariumPage(QWidget):
@@ -173,8 +221,20 @@ class AquariumPage(QWidget):
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(10)
 
+        title_row = QHBoxLayout()
+        title_row.setSpacing(12)
+
         self.aquarium_title_label = QLabel("Choose an aquarium", panel)
         self.aquarium_title_label.setStyleSheet("font-size: 24px; font-weight: 700; color: #7C2D12;")
+
+        self.edit_aquarium_button = QPushButton("Edit Aquarium", panel)
+        self.edit_aquarium_button.setFixedHeight(38)
+        self.edit_aquarium_button.setEnabled(False)
+        self.edit_aquarium_button.clicked.connect(self._open_edit_dialog)
+
+        title_row.addWidget(self.aquarium_title_label)
+        title_row.addStretch(1)
+        title_row.addWidget(self.edit_aquarium_button)
 
         self.aquarium_summary_label = QLabel(
             "Select one aquarium from the left or create a new one.",
@@ -209,7 +269,7 @@ class AquariumPage(QWidget):
         self.feedback_label.setWordWrap(True)
         self.feedback_label.setStyleSheet("color: #2F855A;")
 
-        layout.addWidget(self.aquarium_title_label)
+        layout.addLayout(title_row)
         layout.addWidget(self.aquarium_summary_label)
         layout.addLayout(stats_layout)
         layout.addWidget(self.compatibility_details_label)
@@ -258,7 +318,7 @@ class AquariumPage(QWidget):
         for index, aquarium in enumerate(self.aquariums):
             fish_count = len(aquarium["fish"])
             item = QListWidgetItem(
-                f"{aquarium['name']}\n{aquarium['volume']} L • {fish_count} fish",
+                f"{aquarium['name']}\n{aquarium['volume']} L | {fish_count} fish",
                 self.aquarium_list,
             )
             item.setData(Qt.UserRole, aquarium["id"])
@@ -291,7 +351,12 @@ class AquariumPage(QWidget):
         return None if aquarium is None else int(aquarium["id"])
 
     def _open_create_dialog(self) -> None:
-        dialog = CreateAquariumDialog(self)
+        dialog = AquariumDetailsDialog(
+            title="Add Aquarium",
+            helper_text="Create a new aquarium by entering its name and volume.",
+            confirm_label="Create Aquarium",
+            parent=self,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
 
@@ -299,12 +364,48 @@ class AquariumPage(QWidget):
         result = create_aquarium(name, volume)
 
         if not result.get("success"):
-            self._set_feedback(result.get("message", "Failed to create aquarium."), error=True)
+            self._set_feedback(
+                self._translate_backend_message(
+                    result.get("message", "Failed to create aquarium.")
+                ),
+                error=True,
+            )
             return
 
         created = result["aquarium"]
         self._set_feedback(f"Aquarium '{created['name']}' created successfully.")
         self._load_aquariums(selected_aquarium_id=int(created["id"]))
+
+    def _open_edit_dialog(self) -> None:
+        aquarium = self._selected_aquarium()
+        if aquarium is None:
+            self._set_feedback("Choose an aquarium first.", error=True)
+            return
+
+        dialog = AquariumDetailsDialog(
+            title="Edit Aquarium",
+            helper_text=(
+                "Update the aquarium name and volume. Fish, load, and compatibility "
+                "details will refresh automatically after saving."
+            ),
+            confirm_label="Save Changes",
+            initial_name=str(aquarium["name"]),
+            initial_volume=float(aquarium["volume"]),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        name, volume = dialog.get_values()
+        try:
+            result = update_aquarium(int(aquarium["id"]), name, volume)
+        except AquariumUpdateError as exc:
+            self._set_feedback(self._translate_backend_message(str(exc)), error=True)
+            return
+
+        updated = result["aquarium"]
+        self._set_feedback(f"Aquarium '{updated['name']}' updated successfully.")
+        self._load_aquariums(selected_aquarium_id=int(updated["id"]))
 
     def _handle_remove_fish(self) -> None:
         aquarium_id = self._selected_aquarium_id()
@@ -324,7 +425,7 @@ class AquariumPage(QWidget):
 
         result = remove_fish_from_aquarium(aquarium_id, fish_id, record_id)
         if result.get("error"):
-            self._set_feedback(result["error"], error=True)
+            self._set_feedback(self._translate_backend_message(result["error"]), error=True)
             return
 
         self._set_feedback(f"Removed 1 x {fish_name} from the selected aquarium.")
@@ -342,6 +443,7 @@ class AquariumPage(QWidget):
             return
 
         self.aquarium_title_label.setText(str(aquarium["name"]))
+        self.edit_aquarium_button.setEnabled(True)
 
         grouped_fish: dict[int, dict[str, object]] = {}
         for fish in aquarium["fish"]:
@@ -452,6 +554,7 @@ class AquariumPage(QWidget):
 
     def _clear_aquarium_details(self) -> None:
         self.aquarium_title_label.setText("Choose an aquarium")
+        self.edit_aquarium_button.setEnabled(False)
         self.aquarium_summary_label.setText(
             "Create a new aquarium or select one from the list on the left."
         )
@@ -476,6 +579,31 @@ class AquariumPage(QWidget):
 
         if error:
             QMessageBox.warning(self, "Action failed", message)
+
+    @staticmethod
+    def _translate_backend_message(message: str) -> str:
+        translations = {
+            "Akvariumo pavadinimas privalomas.": "Aquarium name is required.",
+            "Akvariumo tūris turi būti didesnis už 0.": "Aquarium volume must be greater than 0.",
+            "Akvariumo tÅ«ris turi bÅ«ti didesnis uÅ¾ 0.": "Aquarium volume must be greater than 0.",
+            "Akvariumas nerastas.": "Aquarium not found.",
+            "Akvariumo pavadinimas yra privalomas.": "Aquarium name is required.",
+            "Akvariumo litrai turi būti skaičius.": "Aquarium volume must be a number.",
+            "Akvariumo litrai turi bÅ«ti skaiÄius.": "Aquarium volume must be a number.",
+            "Akvariumo litrai turi būti didesni už 0.": "Aquarium volume must be greater than 0.",
+            "Akvariumo litrai turi bÅ«ti didesni uÅ¾ 0.": "Aquarium volume must be greater than 0.",
+            "Žuvis akvariume nerasta": "Fish not found in this aquarium.",
+            "Å½uvis akvariume nerasta": "Fish not found in this aquarium.",
+        }
+        if message in translations:
+            return translations[message]
+
+        database_error_prefixes = ("Duomenų bazės klaida:", "DuomenÅ³ bazÄ—s klaida:")
+        for prefix in database_error_prefixes:
+            if message.startswith(prefix):
+                return f"Database error: {message.split(':', 1)[1].strip()}"
+
+        return message
 
     @staticmethod
     def _badge_style(color: str) -> str:
