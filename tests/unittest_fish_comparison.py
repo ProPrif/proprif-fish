@@ -15,9 +15,9 @@ from app.services.fish_comparison_logic import (
 
 class TestFishComparisonLogic(unittest.TestCase):
     def setUp(self):
-        self.neonas = FishRecord(
+        self.neon = FishRecord(
             id=29,
-            fish_name="Neonas",
+            fish_name="Neon",
             aggression="Rami",
             size=4.0,
             temp_min=22.0,
@@ -25,9 +25,9 @@ class TestFishComparisonLogic(unittest.TestCase):
             ph_min=6.0,
             ph_max=7.0,
         )
-        self.gupija = FishRecord(
+        self.guppy = FishRecord(
             id=30,
-            fish_name="Gupija",
+            fish_name="Guppy",
             aggression="Rami",
             size=5.0,
             temp_min=22.0,
@@ -35,10 +35,10 @@ class TestFishComparisonLogic(unittest.TestCase):
             ph_min=6.8,
             ph_max=7.8,
         )
-        self.skaliaras = FishRecord(
+        self.angelfish = FishRecord(
             id=31,
-            fish_name="Skaliaras",
-            aggression="Teritorinė",
+            fish_name="Angelfish",
+            aggression="Teritorine",
             size=15.0,
             temp_min=24.0,
             temp_max=28.0,
@@ -63,16 +63,16 @@ class TestFishComparisonLogic(unittest.TestCase):
             _validate_selected_ids([29, "abc"])
 
     def test_normalize_aggression_understands_lithuanian_value(self):
-        score, label = _normalize_aggression("Teritorinė")
+        score, label = _normalize_aggression("Teritorine")
         self.assertEqual(score, 2)
-        self.assertEqual(label, "Pusiau agresyvi / teritorinė")
+        self.assertEqual(label, "Semi-aggressive / territorial")
 
     def test_build_range_result_marks_missing_overlap_as_critical(self):
         result = _build_range_result(
             parameter_key="temperature",
-            label="Temperatūros intervalas",
+            label="Temperature Range",
             values=[(22.0, 24.0), (26.0, 28.0)],
-            unit=" °C",
+            unit=" C",
             narrow_overlap_threshold=2.0,
         )
 
@@ -81,7 +81,7 @@ class TestFishComparisonLogic(unittest.TestCase):
         self.assertIsNone(result["overlap"])
 
     def test_build_size_result_marks_large_size_gap_as_critical(self):
-        result = _build_size_result([self.neonas, self.skaliaras])
+        result = _build_size_result([self.neon, self.angelfish])
 
         self.assertEqual(result["severity"], "critical")
         self.assertTrue(result["significant_difference"])
@@ -90,7 +90,7 @@ class TestFishComparisonLogic(unittest.TestCase):
     def test_build_aggression_result_marks_peaceful_and_aggressive_mix(self):
         aggressive = FishRecord(
             id=99,
-            fish_name="Cichlida",
+            fish_name="Cichlid",
             aggression="Agresyvi",
             size=12.0,
             temp_min=24.0,
@@ -99,32 +99,33 @@ class TestFishComparisonLogic(unittest.TestCase):
             ph_max=7.5,
         )
 
-        result = _build_aggression_result([self.neonas, aggressive])
+        result = _build_aggression_result([self.neon, aggressive])
 
         self.assertEqual(result["severity"], "critical")
         self.assertTrue(result["significant_difference"])
-        self.assertIn("ramios", result["message"].lower())
+        self.assertIn("peaceful", result["message"].lower())
 
     @patch("app.services.fish_comparison_logic._fetch_fish_by_ids")
     @patch("app.services.fish_comparison_logic.ensure_tables")
     def test_get_comparison_view_model_success(self, mocked_ensure_tables, mocked_fetch):
-        mocked_fetch.return_value = [self.neonas, self.gupija, self.skaliaras]
+        mocked_fetch.return_value = [self.neon, self.guppy, self.angelfish]
 
         result = get_comparison_view_model([29, 30, 31])
 
         mocked_ensure_tables.assert_called_once()
         mocked_fetch.assert_called_once_with([29, 30, 31])
-        self.assertEqual(result["window_title"], "Žuvų palyginimas")
+        self.assertEqual(result["window_title"], "Fish Comparison")
         self.assertFalse(result["reload_required"])
         self.assertEqual(result["comparison"]["selected_count"], 3)
         self.assertEqual(result["comparison"]["overall_status"], "critical")
         self.assertEqual(len(result["comparison"]["selected_fish"]), 3)
+        self.assertEqual(len(result["comparison"]["table_rows"]), 4)
         self.assertEqual(result["comparison"]["actions"]["available_fish_ids"], [29, 30, 31])
 
     @patch("app.services.fish_comparison_logic._fetch_fish_by_ids")
     @patch("app.services.fish_comparison_logic.ensure_tables")
     def test_get_comparison_view_model_raises_when_fish_missing(self, mocked_ensure_tables, mocked_fetch):
-        mocked_fetch.return_value = [self.neonas, self.gupija]
+        mocked_fetch.return_value = [self.neon, self.guppy]
 
         with self.assertRaises(FishComparisonError) as context:
             get_comparison_view_model([29, 30, 31])

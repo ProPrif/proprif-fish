@@ -1,7 +1,11 @@
+"""English-only service helpers for the fish comparison UI."""
+
+from __future__ import annotations
+
 import sqlite3
 import sys
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 try:
@@ -18,7 +22,7 @@ MAX_FISH_TO_COMPARE = 5
 
 
 class FishComparisonError(ValueError):
-    """Klaida, kai palyginimo užklausa neatitinka reikalavimų."""
+    """Raised when the fish comparison request is invalid."""
 
 
 @dataclass(frozen=True)
@@ -38,22 +42,39 @@ AGGRESSION_ORDER = {
     "peaceful": 1,
     "low": 1,
     "taiki": 1,
+    "semi aggressive": 2,
     "semi_aggressive": 2,
     "semi-aggressive": 2,
+    "medium": 2,
     "pusiau agresyvi": 2,
     "pusiau_agresyvi": 2,
-    "medium": 2,
-    "teritorinė": 2,
+    "territorial": 2,
     "teritorine": 2,
+    "teritorinee": 2,
+    "teritorine ": 2,
+    "teritorine.": 2,
+    "teritorine,": 2,
+    "teritorine-": 2,
+    "teritorinė": 2,
+    "teritorinä—": 2,
     "aggressive": 3,
-    "aukštas": 3,
+    "high": 3,
     "aukstas": 3,
+    "aukštas": 3,
+    "aukå¡tas": 3,
     "agresyvi": 3,
+    "predatory": 3,
     "plesri": 3,
     "plėšri": 3,
+    "plä—å¡ri": 3,
 }
 
 SEVERITY_ORDER = {"info": 0, "warning": 1, "critical": 2}
+STATUS_LABELS = {
+    "ok": "Compatibility looks good.",
+    "warning": "There are some notable differences.",
+    "critical": "There are major compatibility conflicts.",
+}
 
 
 def get_db_connection() -> sqlite3.Connection:
@@ -62,24 +83,20 @@ def get_db_connection() -> sqlite3.Connection:
     return conn
 
 
-
 def ensure_tables() -> None:
     create_tables()
-
 
 
 def _normalize_aggression(value: str) -> tuple[int, str]:
     normalized = (value or "").strip().lower()
     score = AGGRESSION_ORDER.get(normalized, 0)
-
     labels = {
-        1: "Rami",
-        2: "Pusiau agresyvi / teritorinė",
-        3: "Agresyvi",
-        0: value or "Nežinoma",
+        1: "Peaceful",
+        2: "Semi-aggressive / territorial",
+        3: "Aggressive",
+        0: "Unknown",
     }
     return score, labels[score]
-
 
 
 def _serialize_fish(row: sqlite3.Row) -> FishRecord:
@@ -95,27 +112,32 @@ def _serialize_fish(row: sqlite3.Row) -> FishRecord:
     )
 
 
-
-def search_fish_candidates(search_text: str = "", limit: int = 20) -> list[dict[str, Any]]:
-    """Grąžina žuvis pasirinkimui palyginime arba paieškai UI lange."""
+def search_fish_candidates(
+    search_text: str = "",
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
     ensure_tables()
+
     query = """
         SELECT id, fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max
         FROM fish_list
-        WHERE fish_name LIKE ?
-        ORDER BY fish_name ASC
-        LIMIT ?
+        WHERE fish_name LIKE ? COLLATE NOCASE
+        ORDER BY fish_name COLLATE NOCASE ASC
     """
+    parameters: list[Any] = [f"%{search_text.strip()}%"]
+
+    if limit is not None:
+        query += "\nLIMIT ?"
+        parameters.append(limit)
 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(query, (f"%{search_text.strip()}%", limit))
+        cursor.execute(query, tuple(parameters))
         rows = cursor.fetchall()
         return [_build_fish_card(_serialize_fish(row)) for row in rows]
     finally:
         conn.close()
-
 
 
 def _fetch_fish_by_ids(selected_ids: list[int]) -> list[FishRecord]:
@@ -140,33 +162,31 @@ def _fetch_fish_by_ids(selected_ids: list[int]) -> list[FishRecord]:
         conn.close()
 
 
-
 def _validate_selected_ids(selected_ids: list[int]) -> list[int]:
     if not isinstance(selected_ids, list):
-        raise FishComparisonError("Palyginimui reikia pateikti žuvų ID sąrašą.")
+        raise FishComparisonError("Fish comparison expects a list of fish IDs.")
 
     normalized_ids: list[int] = []
     seen: set[int] = set()
-
     for raw_value in selected_ids:
         try:
             fish_id = int(raw_value)
         except (TypeError, ValueError) as exc:
-            raise FishComparisonError("Visi žuvų ID turi būti skaičiai.") from exc
+            raise FishComparisonError("Each fish ID must be numeric.") from exc
 
         if fish_id in seen:
             continue
+
         seen.add(fish_id)
         normalized_ids.append(fish_id)
 
     if len(normalized_ids) < MIN_FISH_TO_COMPARE:
-        raise FishComparisonError("Vartotojas turi pasirinkti bent 2 žuvis palyginimui.")
+        raise FishComparisonError("Select at least 2 fish for comparison.")
 
     if len(normalized_ids) > MAX_FISH_TO_COMPARE:
-        raise FishComparisonError("Vartotojas gali pasirinkti ne daugiau kaip 5 žuvis palyginimui.")
+        raise FishComparisonError("Select no more than 5 fish for comparison.")
 
     return normalized_ids
-
 
 
 def _build_fish_card(fish: FishRecord) -> dict[str, Any]:
@@ -178,31 +198,30 @@ def _build_fish_card(fish: FishRecord) -> dict[str, Any]:
         "can_add_to_aquarium": True,
         "parameters": {
             "temperature": {
-                "label": "Temperatūros intervalas",
-                "value": f"{fish.temp_min:g}-{fish.temp_max:g} °C",
+                "label": "Temperature Range",
+                "value": f"{fish.temp_min:g}-{fish.temp_max:g} C",
                 "min": fish.temp_min,
                 "max": fish.temp_max,
             },
             "ph": {
-                "label": "pH intervalas",
+                "label": "pH Range",
                 "value": f"{fish.ph_min:g}-{fish.ph_max:g}",
                 "min": fish.ph_min,
                 "max": fish.ph_max,
             },
             "size": {
-                "label": "Maksimalus dydis",
+                "label": "Maximum Size",
                 "value": f"{fish.size:g} cm",
                 "numeric": fish.size,
             },
             "aggression": {
-                "label": "Agresyvumo lygis",
+                "label": "Aggression Level",
                 "value": aggression_label,
                 "score": aggression_score,
                 "raw": fish.aggression,
             },
         },
     }
-
 
 
 def _build_range_result(
@@ -219,7 +238,7 @@ def _build_range_result(
 
     if overlap_min > overlap_max:
         severity = "critical"
-        message = f"Bendro {label.lower()} intervalo nėra."
+        message = f"There is no shared {label.lower()}."
         significant = True
         overlap = None
     else:
@@ -231,11 +250,11 @@ def _build_range_result(
         }
         if overlap_width < narrow_overlap_threshold:
             severity = "warning"
-            message = f"Bendras {label.lower()} labai siauras."
+            message = f"The shared {label.lower()} is very narrow."
             significant = True
         else:
             severity = "info"
-            message = f"Yra bendras {label.lower()}."
+            message = f"There is a shared {label.lower()}."
             significant = False
 
     return {
@@ -249,7 +268,6 @@ def _build_range_result(
     }
 
 
-
 def _build_size_result(fish: list[FishRecord]) -> dict[str, Any]:
     sizes = [item.size for item in fish]
     min_size = min(sizes)
@@ -258,20 +276,20 @@ def _build_size_result(fish: list[FishRecord]) -> dict[str, Any]:
 
     if ratio >= 3:
         severity = "critical"
-        message = "Žuvų dydžių skirtumas labai didelis."
+        message = "The size difference between these fish is very large."
         significant = True
     elif ratio >= 2:
         severity = "warning"
-        message = "Žuvų dydžiai pastebimai skiriasi."
+        message = "The fish sizes differ noticeably."
         significant = True
     else:
         severity = "info"
-        message = "Žuvų dydžiai panašūs."
+        message = "The fish sizes are similar."
         significant = False
 
     return {
         "parameter": "size",
-        "label": "Maksimalus dydis",
+        "label": "Maximum Size",
         "severity": severity,
         "significant_difference": significant,
         "message": message,
@@ -280,10 +298,9 @@ def _build_size_result(fish: list[FishRecord]) -> dict[str, Any]:
     }
 
 
-
 def _build_aggression_result(fish: list[FishRecord]) -> dict[str, Any]:
-    scores = []
-    raw_values = []
+    scores: list[int] = []
+    raw_values: list[str] = []
     for item in fish:
         score, label = _normalize_aggression(item.aggression)
         scores.append(score)
@@ -295,26 +312,25 @@ def _build_aggression_result(fish: list[FishRecord]) -> dict[str, Any]:
 
     if score_max == 3 and score_min == 1:
         severity = "critical"
-        message = "Lyginamos ir ramios, ir agresyvios žuvys."
+        message = "The selection mixes peaceful and aggressive fish."
         significant = True
     elif difference >= 1:
         severity = "warning"
-        message = "Agresyvumo lygiai skiriasi."
+        message = "The aggression levels differ."
         significant = True
     else:
         severity = "info"
-        message = "Agresyvumo lygiai panašūs."
+        message = "The aggression levels are similar."
         significant = False
 
     return {
         "parameter": "aggression",
-        "label": "Agresyvumo lygis",
+        "label": "Aggression Level",
         "severity": severity,
         "significant_difference": significant,
         "message": message,
         "values": raw_values,
     }
-
 
 
 def _collect_highlights(parameter_results: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -332,7 +348,6 @@ def _collect_highlights(parameter_results: list[dict[str, Any]]) -> list[dict[st
     return highlights
 
 
-
 def _overall_status(parameter_results: list[dict[str, Any]]) -> str:
     highest = max(SEVERITY_ORDER[item["severity"]] for item in parameter_results)
     if highest == SEVERITY_ORDER["critical"]:
@@ -342,21 +357,40 @@ def _overall_status(parameter_results: list[dict[str, Any]]) -> str:
     return "ok"
 
 
+def _build_table_rows(
+    fish_cards: list[dict[str, Any]],
+    parameter_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    results_by_parameter = {result["parameter"]: result for result in parameter_results}
+    row_order = ["temperature", "ph", "size", "aggression"]
+
+    table_rows: list[dict[str, Any]] = []
+    for parameter_key in row_order:
+        result = results_by_parameter[parameter_key]
+        table_rows.append(
+            {
+                "parameter": parameter_key,
+                "label": result["label"],
+                "severity": result["severity"],
+                "significant_difference": result["significant_difference"],
+                "insight": result["message"],
+                "summary": result.get("overlap", {}).get("value")
+                if result.get("overlap")
+                else result.get("global_range", "-"),
+                "fish_values": [
+                    {
+                        "id": card["id"],
+                        "name": card["name"],
+                        "value": card["parameters"][parameter_key]["value"],
+                    }
+                    for card in fish_cards
+                ],
+            }
+        )
+    return table_rows
+
 
 def compare_selected_fish(selected_ids: list[int]) -> dict[str, Any]:
-    """
-    Pagrindinė funkcija žuvų palyginimo langui.
-
-    Reikalavimai, kuriuos padengia:
-    - galima lyginti 2-5 žuvis;
-    - grąžinami pagrindiniai parametrai: temperatūra, pH, maksimalus dydis, agresyvumas;
-    - reikšmingi skirtumai pažymimi aiškiai;
-    - atsakymas tinkamas vienam UI langui ir leidžia iškart pasirinkti žuvį pridėjimui.
-
-    Sąmoningai nenaudojami parametrai:
-    - vandens kietumas;
-    - minimalus rekomenduojamas akvariumo tūris.
-    """
     ensure_tables()
     normalized_ids = _validate_selected_ids(selected_ids)
     fish = _fetch_fish_by_ids(normalized_ids)
@@ -364,7 +398,9 @@ def compare_selected_fish(selected_ids: list[int]) -> dict[str, Any]:
     if len(fish) != len(normalized_ids):
         found_ids = {item.id for item in fish}
         missing_ids = [fish_id for fish_id in normalized_ids if fish_id not in found_ids]
-        raise FishComparisonError(f"Žuvys nerastos pagal ID: {', '.join(map(str, missing_ids))}.")
+        raise FishComparisonError(
+            f"Fish not found for ID(s): {', '.join(map(str, missing_ids))}."
+        )
 
     fish_cards = [_build_fish_card(item) for item in fish]
     for card in fish_cards:
@@ -373,14 +409,14 @@ def compare_selected_fish(selected_ids: list[int]) -> dict[str, Any]:
     parameter_results = [
         _build_range_result(
             parameter_key="temperature",
-            label="Temperatūros intervalas",
+            label="Temperature Range",
             values=[(item.temp_min, item.temp_max) for item in fish],
-            unit=" °C",
+            unit=" C",
             narrow_overlap_threshold=2.0,
         ),
         _build_range_result(
             parameter_key="ph",
-            label="pH intervalas",
+            label="pH Range",
             values=[(item.ph_min, item.ph_max) for item in fish],
             unit="",
             narrow_overlap_threshold=0.5,
@@ -390,38 +426,39 @@ def compare_selected_fish(selected_ids: list[int]) -> dict[str, Any]:
     ]
 
     highlights = _collect_highlights(parameter_results)
+    overall_status = _overall_status(parameter_results)
 
     return {
         "success": True,
         "selected_count": len(fish_cards),
         "selected_fish": fish_cards,
         "parameters": parameter_results,
+        "table_rows": _build_table_rows(fish_cards, parameter_results),
         "highlights": highlights,
-        "overall_status": _overall_status(parameter_results),
+        "overall_status": overall_status,
+        "overall_label": STATUS_LABELS[overall_status],
         "actions": {
             "add_to_aquarium_enabled": True,
             "available_fish_ids": [item.id for item in fish],
-            "message": "Vartotojas gali tiesiogiai iš palyginimo lango pasirinkti žuvį pridėjimui.",
+            "message": "You can add a compared fish directly to an aquarium.",
         },
     }
 
 
-
 def get_comparison_view_model(selected_ids: list[int]) -> dict[str, Any]:
-    """Papildomas wrapperis UI sluoksniui, kad būtų patogus vieno lango modelis."""
     comparison = compare_selected_fish(selected_ids)
     return {
-        "window_title": "Žuvų palyginimas",
+        "window_title": "Fish Comparison",
         "reload_required": False,
         "comparison": comparison,
     }
 
 
 if __name__ == "__main__":
-    demo_ids = [29, 30]
+    demo_ids = [1, 2]
     try:
-        result = get_comparison_view_model(demo_ids)
         from pprint import pprint
-        pprint(result)
+
+        pprint(get_comparison_view_model(demo_ids))
     except FishComparisonError as exc:
-        print(f"Klaida: {exc}")
+        print(f"Error: {exc}")
