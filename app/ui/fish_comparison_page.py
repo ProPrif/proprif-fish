@@ -38,6 +38,7 @@ try:
     )
     from app.services.multiple_aquarium_logic import get_all_aquariums
     from app.services.search_and_add_fish import add_fish_to_aquarium
+    from app.ui.all_fish_matrix_window import AllFishMatrixWindow
     from app.ui.aquarium_management_page import AquariumManagementPage
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -51,6 +52,7 @@ except ModuleNotFoundError:
     )
     from app.services.multiple_aquarium_logic import get_all_aquariums
     from app.services.search_and_add_fish import add_fish_to_aquarium
+    from app.ui.all_fish_matrix_window import AllFishMatrixWindow
     from app.ui.aquarium_management_page import AquariumManagementPage
 
 
@@ -64,6 +66,7 @@ class FishComparisonPage(QWidget):
         self.selected_fish_ids: list[int] = []
         self.selected_fish_cards: dict[int, dict] = {}
         self.aquariums: list[dict] = []
+        self.all_fish_matrix_window: AllFishMatrixWindow | None = None
         self.management_window: AquariumManagementPage | None = None
 
         self.setMinimumSize(1200, 760)
@@ -205,8 +208,29 @@ class FishComparisonPage(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(12)
+
         title = QLabel("Comparison Overview", panel)
         title.setStyleSheet("font-size: 20px; font-weight: 600; color: #234E52;")
+
+        self.open_all_fish_matrix_button = QPushButton("All fish matrix", panel)
+        self.open_all_fish_matrix_button.clicked.connect(self._open_all_fish_matrix_window)
+        self.open_all_fish_matrix_button.setCursor(Qt.PointingHandCursor)
+        self.open_all_fish_matrix_button.setMinimumHeight(36)
+        self.open_all_fish_matrix_button.setStyleSheet(
+            "QPushButton {"
+            "background-color: #1D4ED8; color: white; border: 1px solid #1E40AF; "
+            "border-radius: 10px; padding: 8px 14px; font-weight: 600;"
+            "}"
+            "QPushButton:hover { background-color: #1E40AF; }"
+            "QPushButton:pressed { background-color: #1E3A8A; }"
+        )
+
+        title_row.addWidget(title)
+        title_row.addStretch(1)
+        title_row.addWidget(self.open_all_fish_matrix_button)
 
         self.comparison_hint_label = QLabel(
             "The selected fish cards and their differences will appear here.",
@@ -252,7 +276,7 @@ class FishComparisonPage(QWidget):
         self.highlights_label.setWordWrap(True)
         self.highlights_label.setStyleSheet("color: #2D3748;")
 
-        layout.addWidget(title)
+        layout.addLayout(title_row)
         layout.addWidget(self.comparison_hint_label)
         layout.addWidget(self.cards_panel)
         layout.addWidget(self.comparison_table, stretch=1)
@@ -613,6 +637,14 @@ class FishComparisonPage(QWidget):
         self.management_window = AquariumManagementPage()
         self.management_window.setWindowTitle("Proprif Fish - Manage Aquariums")
         self.management_window.show()
+
+    def _open_all_fish_matrix_window(self) -> None:
+        if self.all_fish_matrix_window is None:
+            self.all_fish_matrix_window = AllFishMatrixWindow()
+
+        self.all_fish_matrix_window.show()
+        self.all_fish_matrix_window.raise_()
+        self.all_fish_matrix_window.activateWindow()
 
     def _set_catalog_feedback(self, message: str, *, error: bool = False) -> None:
         color = "#C53030" if error else "#2F855A"

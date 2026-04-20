@@ -1,84 +1,78 @@
+from functools import lru_cache
+
+from app.services.aquarium_indicator_logic import AggressionLevel
 from app.services.fish_logic import get_all_fish
-from app.services.aquarium_indicator_logic import (
-    Fish,
-    AggressionLevel
-)
+
+STATUS_SELF = 0
+STATUS_GREEN = 1
+STATUS_YELLOW = 2
+STATUS_RED = 3
 
 
-def map_db_to_fish(db_fish):
+def map_db_to_fish(db_fish: dict) -> tuple[str, int, float, float, float, float]:
     aggression_map = {
-        "PEACEFUL": AggressionLevel.PEACEFUL,
-        "SEMI_AGGRESSIVE": AggressionLevel.SEMI_AGGRESSIVE,
-        "AGGRESSIVE": AggressionLevel.AGGRESSIVE
+        "PEACEFUL": AggressionLevel.PEACEFUL.value,
+        "SEMI_AGGRESSIVE": AggressionLevel.SEMI_AGGRESSIVE.value,
+        "AGGRESSIVE": AggressionLevel.AGGRESSIVE.value,
     }
 
-    return Fish(
-        name=db_fish["fish_name"],
-        temp_range=(db_fish["temp_min"], db_fish["temp_max"]),
-        ph_range=(db_fish["ph_min"], db_fish["ph_max"]),
-        min_volume=0,  # не нужен для fish-fish
-        aggression=aggression_map.get(db_fish["aggression"], AggressionLevel.PEACEFUL),
-        needs_school=False
+    return (
+        db_fish["fish_name"],
+        aggression_map.get(db_fish["aggression"], AggressionLevel.PEACEFUL.value),
+        float(db_fish["temp_min"]),
+        float(db_fish["temp_max"]),
+        float(db_fish["ph_min"]),
+        float(db_fish["ph_max"]),
     )
 
 
-def check_fish_pair(fish1: Fish, fish2: Fish):
-    worst_status = "GREEN"
+def check_fish_pair_code(fish1: tuple[str, int, float, float, float, float], fish2: tuple[str, int, float, float, float, float]) -> int:
+    aggression_1 = fish1[1]
+    aggression_2 = fish2[1]
 
-    if fish1.aggression == AggressionLevel.AGGRESSIVE or fish2.aggression == AggressionLevel.AGGRESSIVE:
-        return "RED"
+    if aggression_1 == AggressionLevel.AGGRESSIVE.value or aggression_2 == AggressionLevel.AGGRESSIVE.value:
+        return STATUS_RED
 
-    if (
-        fish1.aggression == AggressionLevel.SEMI_AGGRESSIVE
-        or fish2.aggression == AggressionLevel.SEMI_AGGRESSIVE
-    ):
-        worst_status = "YELLOW"
+    status = STATUS_YELLOW if (
+        aggression_1 == AggressionLevel.SEMI_AGGRESSIVE.value
+        or aggression_2 == AggressionLevel.SEMI_AGGRESSIVE.value
+    ) else STATUS_GREEN
 
-    temp_min = max(fish1.temp_min, fish2.temp_min)
-    temp_max = min(fish1.temp_max, fish2.temp_max)
-
+    temp_min = fish1[2] if fish1[2] > fish2[2] else fish2[2]
+    temp_max = fish1[3] if fish1[3] < fish2[3] else fish2[3]
     if temp_min > temp_max:
-        return "RED"
-
+        return STATUS_RED
     if (temp_max - temp_min) < 2:
-        if worst_status != "RED":
-            worst_status = "YELLOW"
+        status = STATUS_YELLOW
 
-    ph_min = max(fish1.ph_min, fish2.ph_min)
-    ph_max = min(fish1.ph_max, fish2.ph_max)
-
+    ph_min = fish1[4] if fish1[4] > fish2[4] else fish2[4]
+    ph_max = fish1[5] if fish1[5] < fish2[5] else fish2[5]
     if ph_min > ph_max:
-        return "RED"
-
+        return STATUS_RED
     if (ph_max - ph_min) < 1:
-        if worst_status != "RED":
-            worst_status = "YELLOW"
+        status = STATUS_YELLOW
 
-    return worst_status
+    return status
 
 
-def build_compatibility_matrix():
-    db_fish_list = get_all_fish()
+@lru_cache(maxsize=1)
+def build_compatibility_matrix() -> dict:
+    fish_objects = [map_db_to_fish(row) for row in get_all_fish()]
+    count = len(fish_objects)
+    matrix = [bytearray(count) for _ in range(count)]
 
-    fish_objects = [map_db_to_fish(f) for f in db_fish_list]
+    for index in range(count):
+        matrix[index][index] = STATUS_SELF
 
-    n = len(fish_objects)
-
-    matrix = [["-" for _ in range(n)] for _ in range(n)]
-
-    for i in range(n):
-        for j in range(i, n):
-
-            if i == j:
-                matrix[i][j] = "SELF"
-                continue
-
-            status = check_fish_pair(fish_objects[i], fish_objects[j])
-
-            matrix[i][j] = status
-            matrix[j][i] = status
+    for left_index in range(count):
+        left_fish = fish_objects[left_index]
+        left_row = matrix[left_index]
+        for right_index in range(left_index + 1, count):
+            status = check_fish_pair_code(left_fish, fish_objects[right_index])
+            left_row[right_index] = status
+            matrix[right_index][left_index] = status
 
     return {
-        "fish": [f.name for f in fish_objects],
-        "matrix": matrix
+        "fish": [fish[0] for fish in fish_objects],
+        "matrix": matrix,
     }
