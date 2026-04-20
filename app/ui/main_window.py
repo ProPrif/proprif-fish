@@ -1,12 +1,13 @@
 """Main window UI for the desktop app."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget
 
 from app.ui.aquarium_management_page import AquariumManagementPage
 from app.ui.aquarium_page import AquariumPage
 from app.ui.fish_comparison_page import FishComparisonPage
 from app.ui.fish_select_window import FishSelectWindow
+from app.ui.fish_catalog_crud_window import FishCatalogCrudWindow
 from app.ui.history_window import HistoryWindow
 
 
@@ -28,6 +29,7 @@ class MainWindow(QMainWindow):
         self.fish_select_window: FishSelectWindow | None = None
         self.history_window: HistoryWindow | None = None
         self.comparison_window: FishComparisonPage | None = None
+        self.catalog_window: FishCatalogCrudWindow | None = None
 
         layout.addWidget(self._build_welcome_page())
         self.setCentralWidget(container)
@@ -77,6 +79,20 @@ class MainWindow(QMainWindow):
         layout.addWidget(manage_button)
         layout.addStretch(1)
 
+        bottom_bar = QWidget(page)
+        bottom_bar_layout = QHBoxLayout(bottom_bar)
+        bottom_bar_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_bar_layout.setSpacing(0)
+        bottom_bar_layout.addStretch(1)
+        
+        catalog_button = QPushButton("Catalog", page)
+        catalog_button.setFixedHeight(28)
+        catalog_button.setFixedWidth(80)
+        catalog_button.clicked.connect(self._open_catalog)
+        bottom_bar_layout.addWidget(catalog_button)
+        
+        layout.addWidget(bottom_bar)
+
         return page
 
     def _open_fish_select(self) -> None:
@@ -103,3 +119,8 @@ class MainWindow(QMainWindow):
         self.management_window = AquariumManagementPage()
         self.management_window.setWindowTitle("Proprif Fish - Aquarium Management")
         self.management_window.show()
+
+    def _open_catalog(self) -> None:
+        if self.catalog_window is None:
+            self.catalog_window = FishCatalogCrudWindow(parent=self)
+        self.catalog_window.show()

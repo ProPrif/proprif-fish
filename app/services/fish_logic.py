@@ -144,3 +144,59 @@ def clear_fish_table():
     finally:
         if "conn" in locals():
             conn.close()
+
+
+def update_fish(fish_id, fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE fish_list
+            SET fish_name = ?,
+                aggression = ?,
+                size = ?,
+                temp_min = ?,
+                temp_max = ?,
+                ph_min = ?,
+                ph_max = ?
+            WHERE id = ?
+        """, (fish_name, aggression, size, temp_min, temp_max, ph_min, ph_max, fish_id))
+
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            return get_fish_by_id(fish_id)
+
+        return None
+
+    except sqlite3.Error as e:
+        print(f"Duomenų bazės klaida: {str(e)}")
+        return None
+
+    finally:
+        if "conn" in locals():
+            conn.close()
+
+
+def delete_fish(fish_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            DELETE FROM fish_list
+            WHERE id = ?
+        """, (fish_id,))
+
+        conn.commit()
+
+        return cursor.rowcount > 0
+
+    except sqlite3.Error as e:
+        print(f"Duomenų bazės klaida: {str(e)}")
+        return False
+
+    finally:
+        if "conn" in locals():
+            conn.close()
