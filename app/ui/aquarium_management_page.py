@@ -58,7 +58,7 @@ class AquariumManagementPage(QWidget):
         self.aquariums: list[dict] = []
 
         self.setMinimumSize(960, 620)
-        self.setStyleSheet("color: #111827;")
+        self.setStyleSheet("color: #111827; background-color: #F8FAFC;")
         self._build_ui()
         self._load_aquariums()
 

@@ -5,9 +5,9 @@ from app.config import APP_DB
 
 
 class StatusColor(Enum):
-    GREEN = "Žalia (Suderinama)"
-    YELLOW = "Geltona (Atsargiai)"
-    RED = "Raudona (Nesuderinama)"
+    GREEN = "Green (Compatible)"
+    YELLOW = "Yellow (Caution)"
+    RED = "Red (Incompatible)"
 
 
 class AggressionLevel(Enum):
@@ -17,18 +17,18 @@ class AggressionLevel(Enum):
 
 
 CODE_MESSAGES = {
-    "ALL_PARAMETERS_PERFECT": "Visi pagrindiniai parametrai dera idealiai.",
-    "VOLUME_LIMIT_EXCEEDED": "Akvariume nepakanka tūrio pasirinktai žuviai ir jos kiekiui.",
-    "PREDATOR_ALERT": "Rastas agresyvumo konfliktas arba plėšri žuvis.",
-    "SEMI_AGGRESSIVE_WARNING": "Rūšis yra pusiau agresyvi, todėl reikalingas atsargumas.",
-    "TEMP_MISMATCH_CRITICAL": "Temperatūros diapazonai nesikerta kritiškai.",
-    "TEMP_MISMATCH_MINOR": "Temperatūros suderinamumas ribinis, bet dar galimas.",
-    "TEMP_RANGE_NARROW": "Bendras temperatūros intervalas labai siauras.",
-    "PH_MISMATCH_CRITICAL": "pH diapazonai nesikerta kritiškai.",
-    "PH_MISMATCH_MINOR": "pH suderinamumas ribinis, bet dar galimas.",
-    "PH_RANGE_NARROW": "Bendras pH intervalas labai siauras.",
-    "SOCIAL_NEED_UNMET": "Rūšiai reikia didesnio būrio.",
-    "AQUARIUM_EMPTY": "Akvariumas dar tuščias, todėl vertinimas paremtas bendra žuvies informacija.",
+    "ALL_PARAMETERS_PERFECT": "All parameters are perfect.",
+    "VOLUME_LIMIT_EXCEEDED": "Aquarium does not have enough volume for the selected fish and their quantities.",
+    "PREDATOR_ALERT": "Aggressive conflict or predatory fish detected.",
+    "SEMI_AGGRESSIVE_WARNING": "Species is semi-aggressive, so caution is needed.",
+    "TEMP_MISMATCH_CRITICAL": "Temperature ranges do not match critically.",
+    "TEMP_MISMATCH_MINOR": "Temperature compatibility is marginal but still possible.",
+    "TEMP_RANGE_NARROW": "The overall temperature range is very narrow.",
+    "PH_MISMATCH_CRITICAL": "pH ranges do not match critically.",
+    "PH_MISMATCH_MINOR": "pH compatibility is marginal but still possible.",
+    "PH_RANGE_NARROW": "The overall pH range is very narrow.",
+    "SOCIAL_NEED_UNMET": "Species requires a larger group.",
+    "AQUARIUM_EMPTY": "Aquarium is still empty, so the assessment is based on general fish information.",
 }
 
 
