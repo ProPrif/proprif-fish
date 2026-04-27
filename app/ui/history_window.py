@@ -66,6 +66,10 @@ class HistoryWindow(QMainWindow):
         self.setCentralWidget(container)
         self._load_history()
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._load_history()
+
     def _load_history(self) -> None:
         rows = fish_list.get_history_entries()
         self._table.setRowCount(len(rows))

@@ -38,6 +38,7 @@ try:
     )
     from app.services.multiple_aquarium_logic import get_all_aquariums
     from app.services.search_and_add_fish import add_fish_to_aquarium
+    from app.services import fish_list
     from app.ui.all_fish_matrix_window import AllFishMatrixWindow
     from app.ui.aquarium_management_page import AquariumManagementPage
 except ModuleNotFoundError:
@@ -52,6 +53,7 @@ except ModuleNotFoundError:
     )
     from app.services.multiple_aquarium_logic import get_all_aquariums
     from app.services.search_and_add_fish import add_fish_to_aquarium
+    from app.services import fish_list
     from app.ui.all_fish_matrix_window import AllFishMatrixWindow
     from app.ui.aquarium_management_page import AquariumManagementPage
 
@@ -65,6 +67,7 @@ class FishComparisonPage(QWidget):
 
         self.selected_fish_ids: list[int] = []
         self.selected_fish_cards: dict[int, dict] = {}
+        self._last_history_signature: tuple[int, ...] | None = None
         self.aquariums: list[dict] = []
         self.all_fish_matrix_window: AllFishMatrixWindow | None = None
         self.management_window: AquariumManagementPage | None = None
@@ -436,6 +439,7 @@ class FishComparisonPage(QWidget):
 
     def _refresh_comparison(self) -> None:
         if len(self.selected_fish_ids) < MIN_FISH_TO_COMPARE:
+            self._last_history_signature = None
             self.overall_badge.setText("Status: choose fish")
             self.overall_badge.setStyleSheet(self._badge_style("#718096"))
             remaining = MIN_FISH_TO_COMPARE - len(self.selected_fish_ids)
@@ -489,6 +493,19 @@ class FishComparisonPage(QWidget):
         self._render_highlights(comparison["highlights"])
         self._populate_add_fish_selector(comparison["selected_fish"])
         self._update_add_controls()
+        self._save_history_if_needed(comparison)
+
+    def _save_history_if_needed(self, comparison: dict) -> None:
+        selected_fish = comparison.get("selected_fish", [])
+        if not selected_fish:
+            return
+
+        signature = tuple(sorted(card["id"] for card in selected_fish))
+        if signature == self._last_history_signature:
+            return
+
+        fish_list.save_to_history(selected_fish, comparison.get("overall_label", "Unknown"))
+        self._last_history_signature = signature
 
     def _render_cards(self, fish_cards: list[dict]) -> None:
         self._clear_cards()

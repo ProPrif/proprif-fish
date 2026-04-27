@@ -34,6 +34,7 @@ try:
         remove_fish_from_aquarium,
     )
     from app.services.search_and_add_fish import add_fish_to_aquarium, search_fish
+    from app.services import fish_list
 except ModuleNotFoundError:
     sys.path.append(str(Path(__file__).resolve().parents[2]))
     from app.config import APP_DB
@@ -46,6 +47,7 @@ except ModuleNotFoundError:
         remove_fish_from_aquarium,
     )
     from app.services.search_and_add_fish import add_fish_to_aquarium, search_fish
+    from app.services import fish_list
 
 
 class AquariumManagementPage(QWidget):
@@ -56,6 +58,7 @@ class AquariumManagementPage(QWidget):
         create_tables()
 
         self.aquariums: list[dict] = []
+        self._last_candidate_result: dict | None = None
 
         self.setMinimumSize(960, 620)
         self.setStyleSheet("color: #111827; background-color: #F8FAFC;")
@@ -322,6 +325,7 @@ class AquariumManagementPage(QWidget):
             return
 
         self._set_feedback(f"Added {quantity} x {fish_name} to aquarium #{aquarium_id}.")
+        self._save_candidate_history(aquarium_id, fish_name, quantity)
         self._refresh_current_aquarium_view()
 
     def _handle_remove_fish(self) -> None:
@@ -444,6 +448,7 @@ class AquariumManagementPage(QWidget):
             fish_id=fish_id,
             quantity_to_add=quantity,
         )
+        self._last_candidate_result = result
 
         status_map = {
             "GREEN": ("Status: GREEN", "#2F855A"),
@@ -464,6 +469,33 @@ class AquariumManagementPage(QWidget):
             details_lines.append(f"{code}: {message}")
 
         self.candidate_details_label.setText("\n".join(details_lines))
+
+    def _save_candidate_history(self, aquarium_id: int, fish_name: str, quantity: int) -> None:
+        result = self._last_candidate_result
+        if result is None:
+            result = CompatibilityChecker.evaluate_candidate_for_aquarium(
+                aquarium_id=aquarium_id,
+                fish_id=int(self.search_results.currentItem().data(Qt.UserRole)),
+                quantity_to_add=quantity,
+            )
+
+        aquarium_name = result.get("aquarium_name")
+        if aquarium_name is None:
+            aquarium_name = self._lookup_aquarium_name(aquarium_id)
+
+        display_name = f"{fish_name} x {quantity}" if quantity > 1 else fish_name
+        fish_list.save_to_history(
+            [{"name": display_name}],
+            f"Preview: {result.get('label', 'Unknown')}",
+            aquarium_id=aquarium_id,
+            aquarium_name=aquarium_name,
+        )
+
+    def _lookup_aquarium_name(self, aquarium_id: int) -> str | None:
+        for aquarium in self.aquariums:
+            if int(aquarium["id"]) == aquarium_id:
+                return str(aquarium["name"])
+        return None
 
     def _toggle_candidate_details(self) -> None:
         if not self.candidate_details_label.text().strip():
